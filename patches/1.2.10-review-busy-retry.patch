@@ -1,0 +1,137 @@
+diff --git a/main.js b/main.js
+index 100994b..79f3b23 100644
+--- a/main.js
++++ b/main.js
+@@ -1143,7 +1143,7 @@ function recordGeminiUsage(interaction) {
+ }
+ 
+ async function runSupervisor({ trigger = 'manual', typedCommand = '', audioBase64 = '', chatId = '' } = {}) {
+-  if (supervisorBusy) return { ok: false, error: 'Gemini уже анализирует проект.' };
++  if (supervisorBusy) return { ok: false, retryable: true, error: 'Gemini уже анализирует проект.' };
+   if (!state.settings.supervisorEnabled) return { ok: false, error: 'Сначала включи Gemini Supervisor в настройках.' };
+   const active = chatById(chatId) || activeChat();
+   if (!active) return { ok: false, error: 'Сначала выбери проектный чат.' };
+@@ -1242,7 +1242,7 @@ async function runSupervisor({ trigger = 'manual', typedCommand = '', audioBase6
+     }
+     addEvent('GEMINI ERROR', 'Supervisor не выполнил анализ', detail, 'danger');
+     await commit();
+-    return { ok: false, error: detail };
++    return { ok: false, retryable: error?.code === 'GEMINI_INCOMPLETE', error: detail };
+   } finally {
+     supervisorBusy = false;
+     sendState();
+@@ -1313,7 +1313,7 @@ async function executeSupervisorDecision(decisionId, { automatic = false } = {})
+ }
+ 
+ function requestSupervisorAfterResponse(chatId = '') {
+-  if (!state.settings.supervisorEnabled || state.settings.supervisorMode === 'off' || supervisorBusy) return;
++  if (!state.settings.supervisorEnabled || state.settings.supervisorMode === 'off') return;
+   const currentChat = chatById(chatId) || chatByUrl(state.browser.url);
+   if (!currentChat || !sameChatUrl(currentChat.url, state.browser.url) || pendingDecisionForChat(currentChat.id)) return;
+   const hash = responseHash(state.browser.messages);
+@@ -1322,10 +1322,12 @@ function requestSupervisorAfterResponse(chatId = '') {
+   pendingSupervisorResponses.set(currentChat.id, hash);
+   const lastRunValue = state.supervisor.lastRunAtByChat?.[currentChat.id] || state.supervisor.lastRunAt;
+   const lastRun = lastRunValue ? new Date(lastRunValue).getTime() : 0;
+-  const delay = Math.max(0, state.settings.supervisorCooldownSec * 1000 - (Date.now() - lastRun));
++  const cooldownDelay = Math.max(0, state.settings.supervisorCooldownSec * 1000 - (Date.now() - lastRun));
++  const delay = Math.max(cooldownDelay, supervisorBusy ? 2500 : 0);
+   setTimeout(async () => {
++    let result = null;
+     try {
+-      const result = await runSupervisor({ trigger: 'response-complete', chatId: currentChat.id });
++      result = await runSupervisor({ trigger: 'response-complete', chatId: currentChat.id });
+       if (result.ok) {
+         markSupervisorResponseProcessed(currentChat.id, hash);
+         await commit();
+@@ -1333,6 +1335,9 @@ function requestSupervisorAfterResponse(chatId = '') {
+     } finally {
+       if (pendingSupervisorResponses.get(currentChat.id) === hash) pendingSupervisorResponses.delete(currentChat.id);
+     }
++    if (result?.retryable && state.settings.supervisorEnabled && state.settings.supervisorMode === 'review') {
++      setTimeout(() => requestSupervisorAfterResponse(currentChat.id), 5000);
++    }
+   }, delay);
+ }
+ 
+diff --git a/package-lock.json b/package-lock.json
+index a78382c..1400c91 100644
+--- a/package-lock.json
++++ b/package-lock.json
+@@ -1,12 +1,12 @@
+ {
+   "name": "aegis-chatgpt-client",
+-  "version": "1.2.9",
++  "version": "1.2.10",
+   "lockfileVersion": 3,
+   "requires": true,
+   "packages": {
+     "": {
+       "name": "aegis-chatgpt-client",
+-      "version": "1.2.9",
++      "version": "1.2.10",
+       "dependencies": {
+         "@google/genai": "^2.12.0",
+         "mammoth": "1.8.0",
+diff --git a/package.json b/package.json
+index dc8d695..84c769e 100644
+--- a/package.json
++++ b/package.json
+@@ -1,13 +1,13 @@
+ {
+   "name": "aegis-chatgpt-client",
+-  "version": "1.2.9",
+-  "description": "Minimal three-project autopilot with valid Gemini retry scheduling",
++  "version": "1.2.10",
++  "description": "Minimal three-project autopilot with lossless review-mode retries",
+   "main": "main.js",
+   "private": true,
+   "scripts": {
+     "start": "electron .",
+     "dev": "electron .",
+-    "test": "node tests/multi-chat-smoke.js && node tests/autopilot-resilience-smoke.js && node tests/send-contract-smoke.js && node tests/composer-first-readiness-smoke.js && node tests/no-reload-loop-smoke.js && node tests/budget-guard-smoke.js && node tests/minimal-three-project-smoke.js && node tests/chat-identity-draft-smoke.js && node tests/send-transaction-smoke.js && node tests/own-draft-retry-smoke.js && node tests/watchdog-survival-smoke.js && node tests/quiet-heartbeat-log-smoke.js && node tests/response-gate-recovery-smoke.js && node tests/supervisor-processing-retry-smoke.js && node tests/gemini-incomplete-retry-smoke.js",
++    "test": "node tests/multi-chat-smoke.js && node tests/autopilot-resilience-smoke.js && node tests/send-contract-smoke.js && node tests/composer-first-readiness-smoke.js && node tests/no-reload-loop-smoke.js && node tests/budget-guard-smoke.js && node tests/minimal-three-project-smoke.js && node tests/chat-identity-draft-smoke.js && node tests/send-transaction-smoke.js && node tests/own-draft-retry-smoke.js && node tests/watchdog-survival-smoke.js && node tests/quiet-heartbeat-log-smoke.js && node tests/response-gate-recovery-smoke.js && node tests/supervisor-processing-retry-smoke.js && node tests/gemini-incomplete-retry-smoke.js && node tests/review-busy-retry-smoke.js",
+     "dist:win": "electron-builder --win nsis",
+     "pack:win": "electron-builder --win dir",
+     "dev:once": "electron ."
+diff --git a/tests/review-busy-retry-smoke.js b/tests/review-busy-retry-smoke.js
+new file mode 100644
+index 0000000..d903def
+--- /dev/null
++++ b/tests/review-busy-retry-smoke.js
+@@ -0,0 +1,22 @@
++const fs = require('fs');
++
++const source = fs.readFileSync('main.js', 'utf8');
++const required = [
++  "retryable: true, error: 'Gemini уже анализирует проект.'",
++  "retryable: error?.code === 'GEMINI_INCOMPLETE'",
++  'const delay = Math.max(cooldownDelay, supervisorBusy ? 2500 : 0)',
++  'let result = null',
++  'if (result?.retryable',
++  "state.settings.supervisorMode === 'review'",
++  'setTimeout(() => requestSupervisorAfterResponse(currentChat.id), 5000)'
++];
++for (const token of required) {
++  if (!source.includes(token)) throw new Error(`Missing review retry contract: ${token}`);
++}
++const start = source.indexOf('function requestSupervisorAfterResponse');
++const end = source.indexOf('function stripHtml', start);
++const block = source.slice(start, end);
++if (block.split('\n')[1].includes('supervisorBusy')) {
++  throw new Error('Review response is still discarded immediately while Gemini is busy.');
++}
++console.log('review-mode busy retry smoke test: OK');
+diff --git a/tests/supervisor-processing-retry-smoke.js b/tests/supervisor-processing-retry-smoke.js
+index 7c5b8b5..9073c48 100644
+--- a/tests/supervisor-processing-retry-smoke.js
++++ b/tests/supervisor-processing-retry-smoke.js
+@@ -7,7 +7,7 @@ const required = [
+   'markSupervisorResponseProcessed(chat.id, hash)',
+   'pendingSupervisorResponses.get(currentChat.id) === hash',
+   'pendingSupervisorResponses.set(currentChat.id, hash)',
+-  "const result = await runSupervisor({ trigger: 'response-complete', chatId: currentChat.id })",
++  "result = await runSupervisor({ trigger: 'response-complete', chatId: currentChat.id })",
+   'if (result.ok)',
+   'markSupervisorResponseProcessed(currentChat.id, hash)',
+   'pendingSupervisorResponses.delete(currentChat.id)'
