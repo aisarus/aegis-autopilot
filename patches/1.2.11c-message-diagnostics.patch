@@ -1,0 +1,102 @@
+diff --git a/main.js b/main.js
+index b6f6982..3557f2f 100644
+--- a/main.js
++++ b/main.js
+@@ -756,6 +756,9 @@ function sanitizeAdapterDiagnostics(input = {}) {
+     mainFound: Boolean(input.mainFound),
+     chatLinkCount: Math.min(10000, Math.max(0, Number(input.chatLinkCount) || 0)),
+     messageCount: Math.min(10000, Math.max(0, Number(input.messageCount) || 0)),
++    messageCandidateCount: Math.min(10000, Math.max(0, Number(input.messageCandidateCount) || 0)),
++    assistantMessageCount: Math.min(10000, Math.max(0, Number(input.assistantMessageCount) || 0)),
++    userMessageCount: Math.min(10000, Math.max(0, Number(input.userMessageCount) || 0)),
+     loadingIndicator: Boolean(input.loadingIndicator),
+     generating: Boolean(input.generating),
+     limitDetected: Boolean(input.limitDetected)
+diff --git a/package-lock.json b/package-lock.json
+index 1400c91..2c06cf2 100644
+--- a/package-lock.json
++++ b/package-lock.json
+@@ -1,12 +1,12 @@
+ {
+   "name": "aegis-chatgpt-client",
+-  "version": "1.2.10",
++  "version": "1.2.11",
+   "lockfileVersion": 3,
+   "requires": true,
+   "packages": {
+     "": {
+       "name": "aegis-chatgpt-client",
+-      "version": "1.2.10",
++      "version": "1.2.11",
+       "dependencies": {
+         "@google/genai": "^2.12.0",
+         "mammoth": "1.8.0",
+diff --git a/package.json b/package.json
+index a13c5cf..b07fb81 100644
+--- a/package.json
++++ b/package.json
+@@ -1,13 +1,13 @@
+ {
+   "name": "aegis-chatgpt-client",
+-  "version": "1.2.10",
+-  "description": "Minimal three-project autopilot with retry-safe review scheduling",
++  "version": "1.2.11",
++  "description": "Minimal three-project autopilot with resilient semantic ChatGPT message parsing",
+   "main": "main.js",
+   "private": true,
+   "scripts": {
+     "start": "electron .",
+     "dev": "electron .",
+-    "test": "node tests/multi-chat-smoke.js && node tests/autopilot-resilience-smoke.js && node tests/send-contract-smoke.js && node tests/composer-first-readiness-smoke.js && node tests/no-reload-loop-smoke.js && node tests/budget-guard-smoke.js && node tests/minimal-three-project-smoke.js && node tests/chat-identity-draft-smoke.js && node tests/send-transaction-smoke.js && node tests/own-draft-retry-smoke.js && node tests/watchdog-survival-smoke.js && node tests/quiet-heartbeat-log-smoke.js && node tests/response-gate-recovery-smoke.js && node tests/supervisor-processing-retry-smoke.js && node tests/gemini-incomplete-retry-smoke.js && node tests/review-busy-retry-smoke.js",
++    "test": "node tests/multi-chat-smoke.js && node tests/autopilot-resilience-smoke.js && node tests/send-contract-smoke.js && node tests/composer-first-readiness-smoke.js && node tests/no-reload-loop-smoke.js && node tests/budget-guard-smoke.js && node tests/minimal-three-project-smoke.js && node tests/chat-identity-draft-smoke.js && node tests/send-transaction-smoke.js && node tests/own-draft-retry-smoke.js && node tests/watchdog-survival-smoke.js && node tests/quiet-heartbeat-log-smoke.js && node tests/response-gate-recovery-smoke.js && node tests/supervisor-processing-retry-smoke.js && node tests/gemini-incomplete-retry-smoke.js && node tests/review-busy-retry-smoke.js && node tests/message-parser-resilience-smoke.js",
+     "dist:win": "electron-builder --win nsis",
+     "pack:win": "electron-builder --win dir",
+     "dev:once": "electron ."
+diff --git a/tests/message-parser-resilience-smoke.js b/tests/message-parser-resilience-smoke.js
+new file mode 100644
+index 0000000..a2adab4
+--- /dev/null
++++ b/tests/message-parser-resilience-smoke.js
+@@ -0,0 +1,42 @@
++const fs = require('fs');
++
++const preload = fs.readFileSync('chatgpt-preload.js', 'utf8');
++const primary = fs.readFileSync('adapters/chatgpt/v2026_07.js', 'utf8');
++const legacy = fs.readFileSync('adapters/chatgpt/legacy.js', 'utf8');
++const main = fs.readFileSync('main.js', 'utf8');
++
++const preloadContracts = [
++  'function messageHost(node)',
++  'function explicitMessageRole(node)',
++  'function messageContentNode(host, roleNode, role)',
++  'function conversationMessageCandidates()',
++  '[data-testid^="conversation-turn-"]',
++  '[data-author="assistant"]',
++  '[data-role="user"]',
++  '[data-turn-id]',
++  '[data-message-id]',
++  'const scopedSelector = /^main(?:\\s|$)/i.test(selector.trim())',
++  "if (assistantContent) return 'assistant'",
++  'messageCandidateCount: lastMessageScan.candidateCount',
++  'assistantMessageCount: lastMessageScan.assistantCount',
++  'userMessageCount: lastMessageScan.userCount'
++];
++for (const token of preloadContracts) {
++  if (!preload.includes(token)) throw new Error(`Missing resilient parser contract: ${token}`);
++}
++
++for (const [name, source] of [['primary adapter', primary], ['legacy adapter', legacy]]) {
++  for (const token of ['[data-testid^="conversation-turn-"]', '[data-author="assistant"]', '[data-role="assistant"]', '[data-testid*="assistant-message"]']) {
++    if (!source.includes(token)) throw new Error(`${name} missing selector: ${token}`);
++  }
++}
++
++for (const token of ['messageCandidateCount:', 'assistantMessageCount:', 'userMessageCount:']) {
++  if (!main.includes(token)) throw new Error(`Main diagnostics missing ${token}`);
++}
++
++if (preload.includes('document.querySelectorAll(`main ${selector}`)')) {
++  throw new Error('Already-scoped adapter selectors would be prefixed with main twice.');
++}
++
++console.log('resilient ChatGPT message parser smoke test: OK');
