@@ -2,3 +2,4 @@
 1.2.4-own-draft-retry.patch
 1.2.5-watchdog-survival.patch
 1.2.6-quiet-heartbeat-logs.patch
+1.2.7-response-gate-recovery.patch
