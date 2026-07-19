@@ -1,0 +1,78 @@
+diff --git a/main.js b/main.js
+index 1bf6534..705e8d7 100644
+--- a/main.js
++++ b/main.js
+@@ -1101,6 +1101,9 @@ async function runSupervisor({ trigger = 'manual', typedCommand = '', audioBase6
+   if (!state.settings.supervisorEnabled) return { ok: false, error: 'Сначала включи Gemini Supervisor в настройках.' };
+   const active = chatById(chatId) || activeChat();
+   if (!active) return { ok: false, error: 'Сначала выбери проектный чат.' };
++  if (!sameChatUrl(state.browser.url, active.url)) {
++    return { ok: false, retryable: true, error: 'Gemini не начал анализ: во встроенном ChatGPT открыт другой разговор.' };
++  }
+   const dailyLimit = Math.max(0, Number(state.settings.maxGeminiCallsPerDay) || 0);
+   const dailyCalls = Math.max(0, Number(state.supervisor.usageByDay?.[localDayKey()]?.calls) || 0);
+   if (dailyLimit && dailyCalls >= dailyLimit) return { ok: false, error: `Дневной лимит Gemini в Aegis достигнут: ${dailyCalls}/${dailyLimit}.` };
+diff --git a/package-lock.json b/package-lock.json
+index d6f7ec1..8136f93 100644
+--- a/package-lock.json
++++ b/package-lock.json
+@@ -1,12 +1,12 @@
+ {
+   "name": "aegis-chatgpt-client",
+-  "version": "1.2.12",
++  "version": "1.2.13",
+   "lockfileVersion": 3,
+   "requires": true,
+   "packages": {
+     "": {
+       "name": "aegis-chatgpt-client",
+-      "version": "1.2.12",
++      "version": "1.2.13",
+       "dependencies": {
+         "@google/genai": "^2.12.0",
+         "mammoth": "1.8.0",
+diff --git a/package.json b/package.json
+index 97816a7..8823ff9 100644
+--- a/package.json
++++ b/package.json
+@@ -1,13 +1,13 @@
+ {
+   "name": "aegis-chatgpt-client",
+-  "version": "1.2.12",
+-  "description": "Minimal three-project autopilot with single-pass ChatGPT DOM inspection",
++  "version": "1.2.13",
++  "description": "Minimal three-project autopilot with conversation-bound Gemini analysis",
+   "main": "main.js",
+   "private": true,
+   "scripts": {
+     "start": "electron .",
+     "dev": "electron .",
+-    "test": "node tests/multi-chat-smoke.js && node tests/autopilot-resilience-smoke.js && node tests/send-contract-smoke.js && node tests/composer-first-readiness-smoke.js && node tests/no-reload-loop-smoke.js && node tests/budget-guard-smoke.js && node tests/minimal-three-project-smoke.js && node tests/chat-identity-draft-smoke.js && node tests/send-transaction-smoke.js && node tests/own-draft-retry-smoke.js && node tests/watchdog-survival-smoke.js && node tests/quiet-heartbeat-log-smoke.js && node tests/response-gate-recovery-smoke.js && node tests/supervisor-processing-retry-smoke.js && node tests/gemini-incomplete-retry-smoke.js && node tests/review-busy-retry-smoke.js && node tests/message-parser-resilience-smoke.js && node tests/single-pass-message-scan-smoke.js",
++    "test": "node tests/multi-chat-smoke.js && node tests/autopilot-resilience-smoke.js && node tests/send-contract-smoke.js && node tests/composer-first-readiness-smoke.js && node tests/no-reload-loop-smoke.js && node tests/budget-guard-smoke.js && node tests/minimal-three-project-smoke.js && node tests/chat-identity-draft-smoke.js && node tests/send-transaction-smoke.js && node tests/own-draft-retry-smoke.js && node tests/watchdog-survival-smoke.js && node tests/quiet-heartbeat-log-smoke.js && node tests/response-gate-recovery-smoke.js && node tests/supervisor-processing-retry-smoke.js && node tests/gemini-incomplete-retry-smoke.js && node tests/review-busy-retry-smoke.js && node tests/message-parser-resilience-smoke.js && node tests/single-pass-message-scan-smoke.js && node tests/supervisor-conversation-binding-smoke.js",
+     "dist:win": "electron-builder --win nsis",
+     "pack:win": "electron-builder --win dir",
+     "dev:once": "electron ."
+diff --git a/tests/supervisor-conversation-binding-smoke.js b/tests/supervisor-conversation-binding-smoke.js
+new file mode 100644
+index 0000000..3c492e3
+--- /dev/null
++++ b/tests/supervisor-conversation-binding-smoke.js
+@@ -0,0 +1,18 @@
++const fs = require('fs');
++const source = fs.readFileSync('main.js', 'utf8');
++
++const start = source.indexOf('async function runSupervisor(');
++const end = source.indexOf('async function executeSupervisorDecision', start);
++if (start < 0 || end < 0) throw new Error('Supervisor function boundaries not found.');
++const block = source.slice(start, end);
++
++const guard = "if (!sameChatUrl(state.browser.url, active.url))";
++if (!block.includes(guard)) throw new Error('Gemini analysis is not bound to the target ChatGPT conversation.');
++if (!block.includes("retryable: true, error: 'Gemini не начал анализ: во встроенном ChatGPT открыт другой разговор.'")) {
++  throw new Error('Wrong-chat Gemini analysis is not deferred safely.');
++}
++const guardAt = block.indexOf(guard);
++const contextAt = block.indexOf('supervisorContext(');
++if (contextAt < 0 || guardAt > contextAt) throw new Error('Conversation binding guard runs after ChatGPT text is captured.');
++
++console.log('conversation-bound Gemini supervisor smoke test: OK');
