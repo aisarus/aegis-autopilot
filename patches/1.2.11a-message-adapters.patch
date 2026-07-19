@@ -1,0 +1,51 @@
+diff --git a/adapters/chatgpt/legacy.js b/adapters/chatgpt/legacy.js
+index 69120dc..32bc3ae 100644
+--- a/adapters/chatgpt/legacy.js
++++ b/adapters/chatgpt/legacy.js
+@@ -5,16 +5,16 @@ module.exports = {
+   probes(document) {
+     let score = 1;
+     if (document.querySelector('form textarea, form [contenteditable="true"]')) score += 20;
+-    if (document.querySelector('main article, main [data-message-author-role]')) score += 15;
++    if (document.querySelector('main article, main [data-message-author-role], main [data-author], main [data-role], main [data-testid*="conversation-turn"]')) score += 15;
+     return score;
+   },
+   selectors: {
+     composer: ['form textarea','form [contenteditable="true"]','main textarea','main [contenteditable="true"]'],
+     stopButton: ['button[data-testid*="stop"]'],
+     sendButton: ['button[data-testid*="send"]','form button[type="submit"]'],
+-    assistantMessages: ['[data-message-author-role="assistant"]','main article'],
+-    messageTurns: ['main article','main [data-message-author-role]'],
+-    roleNodes: ['main [data-message-author-role]'],
++    assistantMessages: ['[data-message-author-role="assistant"]','[data-author="assistant"]','[data-role="assistant"]','[data-testid*="assistant-message"]','main article'],
++    messageTurns: ['[data-testid^="conversation-turn-"]','[data-testid*="conversation-turn"]','[data-turn-id]','[data-message-id]','main article','main [data-message-author-role]'],
++    roleNodes: ['main [data-message-author-role]','main [data-author="assistant"]','main [data-author="user"]','main [data-role="assistant"]','main [data-role="user"]','main [data-testid*="assistant-message"]','main [data-testid*="user-message"]'],
+     streaming: ['[aria-busy="true"]','[data-streaming="true"]','[class*="streaming"]']
+   }
+ };
+diff --git a/adapters/chatgpt/v2026_07.js b/adapters/chatgpt/v2026_07.js
+index 0f3976e..28e53d2 100644
+--- a/adapters/chatgpt/v2026_07.js
++++ b/adapters/chatgpt/v2026_07.js
+@@ -5,7 +5,7 @@ module.exports = {
+   probes(document) {
+     let score = 0;
+     if (document.querySelector('#prompt-textarea')) score += 50;
+-    if (document.querySelector('[data-message-author-role]')) score += 30;
++    if (document.querySelector('[data-message-author-role], [data-author], [data-role], [data-testid*="conversation-turn"]')) score += 30;
+     if (document.querySelector('button[data-testid="send-button"],button[data-testid="composer-submit-button"]')) score += 20;
+     return score;
+   },
+@@ -13,9 +13,9 @@ module.exports = {
+     composer: ['#prompt-textarea','main [contenteditable="true"][data-lexical-editor="true"]','form [contenteditable="true"]','textarea[data-id="root"]','form textarea'],
+     stopButton: ['button[data-testid="stop-button"]','button[data-testid="composer-stop-button"]'],
+     sendButton: ['button[data-testid="send-button"]','button[data-testid="composer-submit-button"]'],
+-    assistantMessages: ['[data-message-author-role="assistant"]'],
+-    messageTurns: ['article[data-testid^="conversation-turn-"]','main article'],
+-    roleNodes: ['main [data-message-author-role]'],
++    assistantMessages: ['[data-message-author-role="assistant"]','[data-author="assistant"]','[data-role="assistant"]','[data-testid*="assistant-message"]'],
++    messageTurns: ['article[data-testid^="conversation-turn-"]','[data-testid^="conversation-turn-"]','[data-testid*="conversation-turn"]','[data-turn-id]','[data-message-id]','main article'],
++    roleNodes: ['main [data-message-author-role]','main [data-author="assistant"]','main [data-author="user"]','main [data-role="assistant"]','main [data-role="user"]','main [data-testid*="assistant-message"]','main [data-testid*="user-message"]'],
+     streaming: ['[aria-busy="true"]','[data-streaming="true"]','.result-streaming','[class*="streaming"]']
+   }
+ };
