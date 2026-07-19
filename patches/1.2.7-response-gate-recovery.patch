@@ -1,0 +1,106 @@
+diff --git a/main.js b/main.js
+--- a/main.js
++++ b/main.js
+@@ -1136,12 +1136,29 @@ function runAutopilotWatchdog() {
+   if (!enabled.length) return;
+   const currentChat = chatByUrl(state.browser.url);
+-  if (responseGate && Date.now() - responseGate.openedAt > 12 * 60 * 1000) {
+-    const staleChat = chatById(responseGate.chatId);
+-    writeLog('warn', 'Stale response gate released', responseGate.itemId);
+-    responseGate = null;
+-    if (staleChat?.autopilotEnabled) scheduleAutopilotScan(staleChat.id, { front: true, delay: 1500 });
++  if (responseGate) {
++    const gate = responseGate;
++    const gateChat = chatById(gate.chatId);
++    const ageMs = Date.now() - gate.openedAt;
++    const gateOnCurrentChat = Boolean(gateChat && sameChatUrl(state.browser.url, gateChat.url));
++    const currentViewIdle = !state.browser.generating && state.browser.composerReady;
++    // ChatGPT occasionally omits both the stop-button transition and readable
++    // assistant turns. Do not let that DOM ambiguity freeze all three projects.
++    // A normal idle/current view may be reconciled after 90 seconds; a gate that
++    // survives four minutes is always released and re-inspected before more work.
++    const reconciliationTimedOut = ageMs >= 90 * 1000 && (currentViewIdle || !gateOnCurrentChat);
++    const hardTimedOut = ageMs >= 4 * 60 * 1000;
++    if (reconciliationTimedOut || hardTimedOut) {
++      responseGate = null;
++      const reason = hardTimedOut ? 'hard-timeout' : (gateOnCurrentChat ? 'idle-timeout' : 'chat-switched');
++      writeLog('warn', 'Response gate released for reconciliation', `${gate.itemId}:${reason}:${ageMs}`);
++      addEvent('RESPONSE GATE RECOVERY', gateChat?.title || 'ChatGPT', 'Маркер ответа не подтвердился вовремя. Aegis снял глобальную блокировку и перепроверит чат перед следующим действием.', 'attention');
++      if (gateChat?.autopilotEnabled) scheduleAutopilotScan(gateChat.id, { front: true, delay: 1500 });
++      else requestDispatch();
++    }
+   }
+   if (!dispatchBusy && !supervisorBusy && !state.browser.generating && state.browser.composerReady) {
+     if (currentChat?.autopilotEnabled) scheduleAutopilotScan(currentChat.id, { front: true, delay: 0 });
+     else if (!autopilotScanQueue.length) enabled.forEach((chat, index) => scheduleAutopilotScan(chat.id, { delay: index * 500 }));
+   }
+ diff --git a/package.json b/package.json
+--- a/package.json
++++ b/package.json
+@@ -1,13 +1,13 @@
+ {
+   "name": "aegis-chatgpt-client",
+-  "version": "1.2.6",
+-  "description": "Minimal three-project autopilot with low-noise runtime diagnostics",
++  "version": "1.2.7",
++  "description": "Minimal three-project autopilot with bounded response reconciliation",
+   "main": "main.js",
+   "private": true,
+   "scripts": {
+     "start": "electron .",
+     "dev": "electron .",
+-    "test": "node tests/multi-chat-smoke.js && node tests/autopilot-resilience-smoke.js && node tests/send-contract-smoke.js && node tests/composer-first-readiness-smoke.js && node tests/no-reload-loop-smoke.js && node tests/budget-guard-smoke.js && node tests/minimal-three-project-smoke.js && node tests/chat-identity-draft-smoke.js && node tests/send-transaction-smoke.js && node tests/own-draft-retry-smoke.js && node tests/watchdog-survival-smoke.js && node tests/quiet-heartbeat-log-smoke.js",
++    "test": "node tests/multi-chat-smoke.js && node tests/autopilot-resilience-smoke.js && node tests/send-contract-smoke.js && node tests/composer-first-readiness-smoke.js && node tests/no-reload-loop-smoke.js && node tests/budget-guard-smoke.js && node tests/minimal-three-project-smoke.js && node tests/chat-identity-draft-smoke.js && node tests/send-transaction-smoke.js && node tests/own-draft-retry-smoke.js && node tests/watchdog-survival-smoke.js && node tests/quiet-heartbeat-log-smoke.js && node tests/response-gate-recovery-smoke.js",
+     "dist:win": "electron-builder --win nsis",
+     "pack:win": "electron-builder --win dir",
+     "dev:once": "electron ."
+ diff --git a/package-lock.json b/package-lock.json
+--- a/package-lock.json
++++ b/package-lock.json
+@@ -1,12 +1,12 @@
+ {
+   "name": "aegis-chatgpt-client",
+-  "version": "1.2.6",
++  "version": "1.2.7",
+   "lockfileVersion": 3,
+   "requires": true,
+   "packages": {
+     "": {
+       "name": "aegis-chatgpt-client",
+-      "version": "1.2.6",
++      "version": "1.2.7",
+       "dependencies": {
+         "@google/genai": "^2.12.0",
+         "mammoth": "1.8.0",
+ diff --git a/tests/response-gate-recovery-smoke.js b/tests/response-gate-recovery-smoke.js
+new file mode 100644
+--- /dev/null
++++ b/tests/response-gate-recovery-smoke.js
+@@ -0,0 +1,29 @@
++const fs = require('fs');
++
++const source = fs.readFileSync('main.js', 'utf8');
++const required = [
++  'const reconciliationTimedOut = ageMs >= 90 * 1000',
++  'const hardTimedOut = ageMs >= 4 * 60 * 1000',
++  "const reason = hardTimedOut ? 'hard-timeout'",
++  "writeLog('warn', 'Response gate released for reconciliation'",
++  "addEvent('RESPONSE GATE RECOVERY'",
++  'scheduleAutopilotScan(gateChat.id, { front: true, delay: 1500 })',
++  'else requestDispatch()'
++];
++
++for (const token of required) {
++  if (!source.includes(token)) throw new Error(`Missing bounded response gate recovery contract: ${token}`);
++}
++
++const watchdogStart = source.indexOf('function runAutopilotWatchdog()');
++const watchdogEnd = source.indexOf('async function readGeminiKey()', watchdogStart);
++if (watchdogStart < 0 || watchdogEnd < 0) throw new Error('Autopilot watchdog block not found.');
++const watchdog = source.slice(watchdogStart, watchdogEnd);
++
++if (watchdog.includes('12 * 60 * 1000')) {
++  throw new Error('Legacy twelve-minute global response gate remains active.');
++}
++
++console.log('bounded response gate recovery smoke test: OK');
