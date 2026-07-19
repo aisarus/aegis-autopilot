@@ -34,7 +34,7 @@ diff --git a/main.js b/main.js
      if (currentChat?.autopilotEnabled) scheduleAutopilotScan(currentChat.id, { front: true, delay: 0 });
      else if (!autopilotScanQueue.length) enabled.forEach((chat, index) => scheduleAutopilotScan(chat.id, { delay: index * 500 }));
    }
- diff --git a/package.json b/package.json
+diff --git a/package.json b/package.json
 --- a/package.json
 +++ b/package.json
 @@ -1,13 +1,13 @@
@@ -54,7 +54,7 @@ diff --git a/main.js b/main.js
      "dist:win": "electron-builder --win nsis",
      "pack:win": "electron-builder --win dir",
      "dev:once": "electron ."
- diff --git a/package-lock.json b/package-lock.json
+diff --git a/package-lock.json b/package-lock.json
 --- a/package-lock.json
 +++ b/package-lock.json
 @@ -1,12 +1,12 @@
@@ -72,7 +72,7 @@ diff --git a/main.js b/main.js
        "dependencies": {
          "@google/genai": "^2.12.0",
          "mammoth": "1.8.0",
- diff --git a/tests/response-gate-recovery-smoke.js b/tests/response-gate-recovery-smoke.js
+diff --git a/tests/response-gate-recovery-smoke.js b/tests/response-gate-recovery-smoke.js
 new file mode 100644
 --- /dev/null
 +++ b/tests/response-gate-recovery-smoke.js
