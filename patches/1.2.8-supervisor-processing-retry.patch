@@ -1,0 +1,147 @@
+diff --git a/main.js b/main.js
+--- a/main.js
++++ b/main.js
+@@ -63,6 +63,7 @@ let autopilotWatchdogTimer = null;
+ let shuttingDown = false;
+ const pendingCommands = new Map();
++const pendingSupervisorResponses = new Map();
+ 
+ const now = () => new Date().toISOString();
+ const id = (prefix) => `${prefix}-${crypto.randomUUID().slice(0, 8)}`;
+@@ -717,14 +718,13 @@ async function runAutopilotScheduler() {
+       await commit();
+       scheduleAutopilotScan(chat.id, { delay: Math.max(15000, state.settings.supervisorCooldownSec * 1000) });
+     } else {
+-      state.supervisor.lastProcessedResponseHash = hash;
+-      state.supervisor.lastProcessedResponseByChat = { ...processed, [chat.id]: hash };
+       chat.autopilotState = 'thinking';
+       await persist();
+       const result = await runSupervisor({ trigger: 'multi-chat-autopilot', chatId: chat.id });
+       if (!result.ok) {
+         const retryDelay = recordAutopilotFailure(chat, result.error || 'Supervisor error');
+         scheduleAutopilotScan(chat.id, { delay: retryDelay });
+       } else {
++        markSupervisorResponseProcessed(chat.id, hash);
+         resetAutopilotHealth(chat);
+         if (pendingDecisionForChat(chat.id)) chat.autopilotState = 'needs-user';
+         else if (chat.autopilotEnabled) chat.autopilotState = 'watching';
+@@ -770,6 +770,15 @@ function responseHash(messages) {
+ ${last.text}`).digest('hex').slice(0, 24) : '';
+ }
+ 
++function markSupervisorResponseProcessed(chatId, hash) {
++  if (!chatId || !hash) return;
++  state.supervisor.lastProcessedResponseHash = hash;
++  state.supervisor.lastProcessedResponseByChat = {
++    ...(state.supervisor.lastProcessedResponseByChat || {}),
++    [chatId]: hash
++  };
++}
++
+ function sanitizeAdapterDiagnostics(input = {}) {
+   return {
+     adapterVersion: compact(input.adapterVersion, 80),
+@@ -1311,14 +1320,24 @@ function requestSupervisorAfterResponse(chatId = '') {
+   const currentChat = chatById(chatId) || chatByUrl(state.browser.url);
+   if (!currentChat || !sameChatUrl(currentChat.url, state.browser.url) || pendingDecisionForChat(currentChat.id)) return;
+   const hash = responseHash(state.browser.messages);
+   const processed = state.supervisor.lastProcessedResponseByChat || {};
+-  if (!hash || hash === processed[currentChat.id]) return;
+-  state.supervisor.lastProcessedResponseHash = hash;
+-  state.supervisor.lastProcessedResponseByChat = { ...processed, [currentChat.id]: hash };
+-  persist().catch(() => {});
++  if (!hash || hash === processed[currentChat.id] || pendingSupervisorResponses.get(currentChat.id) === hash) return;
++  pendingSupervisorResponses.set(currentChat.id, hash);
+   const lastRunValue = state.supervisor.lastRunAtByChat?.[currentChat.id] || state.supervisor.lastRunAt;
+   const lastRun = lastRunValue ? new Date(lastRunValue).getTime() : 0;
+   const delay = Math.max(0, state.settings.supervisorCooldownSec * 1000 - (Date.now() - lastRun));
+-  setTimeout(() => runSupervisor({ trigger: 'response-complete', chatId: currentChat.id }).catch(() => {}), delay);
++  setTimeout(async () => {
++    try {
++      const result = await runSupervisor({ trigger: 'response-complete', chatId: currentChat.id });
++      if (result.ok) {
++        markSupervisorResponseProcessed(currentChat.id, hash);
++        await commit();
++      }
++    } finally {
++      if (pendingSupervisorResponses.get(currentChat.id) === hash) pendingSupervisorResponses.delete(currentChat.id);
++    }
++  }, delay);
+ }
+ 
+ function stripHtml(html) {
+ diff --git a/package.json b/package.json
+--- a/package.json
++++ b/package.json
+@@ -1,13 +1,13 @@
+ {
+   "name": "aegis-chatgpt-client",
+-  "version": "1.2.7",
+-  "description": "Minimal three-project autopilot with bounded response reconciliation",
++  "version": "1.2.8",
++  "description": "Minimal three-project autopilot with retry-safe supervisor processing",
+   "main": "main.js",
+   "private": true,
+   "scripts": {
+     "start": "electron .",
+     "dev": "electron .",
+-    "test": "node tests/multi-chat-smoke.js && node tests/autopilot-resilience-smoke.js && node tests/send-contract-smoke.js && node tests/composer-first-readiness-smoke.js && node tests/no-reload-loop-smoke.js && node tests/budget-guard-smoke.js && node tests/minimal-three-project-smoke.js && node tests/chat-identity-draft-smoke.js && node tests/send-transaction-smoke.js && node tests/own-draft-retry-smoke.js && node tests/watchdog-survival-smoke.js && node tests/quiet-heartbeat-log-smoke.js && node tests/response-gate-recovery-smoke.js",
++    "test": "node tests/multi-chat-smoke.js && node tests/autopilot-resilience-smoke.js && node tests/send-contract-smoke.js && node tests/composer-first-readiness-smoke.js && node tests/no-reload-loop-smoke.js && node tests/budget-guard-smoke.js && node tests/minimal-three-project-smoke.js && node tests/chat-identity-draft-smoke.js && node tests/send-transaction-smoke.js && node tests/own-draft-retry-smoke.js && node tests/watchdog-survival-smoke.js && node tests/quiet-heartbeat-log-smoke.js && node tests/response-gate-recovery-smoke.js && node tests/supervisor-processing-retry-smoke.js",
+     "dist:win": "electron-builder --win nsis",
+     "pack:win": "electron-builder --win dir",
+     "dev:once": "electron ."
+ diff --git a/package-lock.json b/package-lock.json
+--- a/package-lock.json
++++ b/package-lock.json
+@@ -1,12 +1,12 @@
+ {
+   "name": "aegis-chatgpt-client",
+-  "version": "1.2.7",
++  "version": "1.2.8",
+   "lockfileVersion": 3,
+   "requires": true,
+   "packages": {
+     "": {
+       "name": "aegis-chatgpt-client",
+-      "version": "1.2.7",
++      "version": "1.2.8",
+       "dependencies": {
+         "@google/genai": "^2.12.0",
+         "mammoth": "1.8.0",
+ diff --git a/tests/supervisor-processing-retry-smoke.js b/tests/supervisor-processing-retry-smoke.js
+new file mode 100644
+--- /dev/null
++++ b/tests/supervisor-processing-retry-smoke.js
+@@ -0,0 +1,30 @@
++const fs = require('fs');
++
++const source = fs.readFileSync('main.js', 'utf8');
++const required = [
++  'const pendingSupervisorResponses = new Map()',
++  'function markSupervisorResponseProcessed(chatId, hash)',
++  'markSupervisorResponseProcessed(chat.id, hash)',
++  'pendingSupervisorResponses.get(currentChat.id) === hash',
++  'pendingSupervisorResponses.set(currentChat.id, hash)',
++  "const result = await runSupervisor({ trigger: 'response-complete', chatId: currentChat.id })",
++  'if (result.ok)',
++  'markSupervisorResponseProcessed(currentChat.id, hash)',
++  'pendingSupervisorResponses.delete(currentChat.id)'
++];
++
++for (const token of required) {
++  if (!source.includes(token)) throw new Error(`Missing retry-safe supervisor processing contract: ${token}`);
++}
++
++const schedulerStart = source.indexOf('async function runAutopilotScheduler()');
++const schedulerEnd = source.indexOf('function requestDispatch()', schedulerStart);
++const scheduler = source.slice(schedulerStart, schedulerEnd);
++const callAt = scheduler.indexOf("await runSupervisor({ trigger: 'multi-chat-autopilot'");
++const markAt = scheduler.indexOf('markSupervisorResponseProcessed(chat.id, hash)');
++if (callAt < 0 || markAt < 0 || markAt < callAt) throw new Error('Autopilot marks a response processed before Gemini succeeds.');
++
++const reviewStart = source.indexOf('function requestSupervisorAfterResponse');
++const reviewEnd = source.indexOf('function stripHtml', reviewStart);
++const review = source.slice(reviewStart, reviewEnd);
++if (review.indexOf('markSupervisorResponseProcessed(currentChat.id, hash)') < review.indexOf('if (result.ok)')) throw new Error('Review mode marks failed Gemini calls as processed.');
++
++console.log('retry-safe supervisor response processing smoke test: OK');
