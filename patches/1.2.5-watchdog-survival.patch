@@ -1,0 +1,86 @@
+diff --git a/main.js b/main.js
+--- a/main.js
++++ b/main.js
+@@ -1394,7 +1394,6 @@ function createWindow() {
+     writeLog('warn', 'ChatGPT webContents became unresponsive');
+     addEvent('CHATGPT UNRESPONSIVE', 'Вкладка ChatGPT перестала отвечать', 'Автоперезагрузка отключена: Aegis сохранит журнал и подождёт восстановления страницы.', 'attention');
+     clearTimeout(chatUnresponsiveTimer);
+-  clearInterval(autopilotWatchdogTimer);
+     chatUnresponsiveTimer = setTimeout(() => { writeLog('warn', 'ChatGPT still unresponsive after 12 seconds; reload suppressed'); sendState(); }, 12000);
+     commit().catch(() => {});
+   });
+@@ -1402,7 +1401,6 @@ function createWindow() {
+   chatView.webContents.on('responsive', () => {
+     clearTimeout(chatUnresponsiveTimer);
+-  clearInterval(autopilotWatchdogTimer);
+     chatUnresponsiveTimer = null;
+     writeLog('info', 'ChatGPT webContents responsive again');
+   });
+diff --git a/package.json b/package.json
+--- a/package.json
++++ b/package.json
+@@ -1,13 +1,13 @@
+ {
+   "name": "aegis-chatgpt-client",
+-  "version": "1.2.4",
+-  "description": "Minimal three-project autopilot with draft-safe automatic retries",
++  "version": "1.2.5",
++  "description": "Minimal three-project autopilot with a persistent recovery watchdog",
+   "main": "main.js",
+   "private": true,
+   "scripts": {
+     "start": "electron .",
+     "dev": "electron .",
+-    "test": "node tests/multi-chat-smoke.js && node tests/autopilot-resilience-smoke.js && node tests/send-contract-smoke.js && node tests/composer-first-readiness-smoke.js && node tests/no-reload-loop-smoke.js && node tests/budget-guard-smoke.js && node tests/minimal-three-project-smoke.js && node tests/chat-identity-draft-smoke.js && node tests/send-transaction-smoke.js && node tests/own-draft-retry-smoke.js",
++    "test": "node tests/multi-chat-smoke.js && node tests/autopilot-resilience-smoke.js && node tests/send-contract-smoke.js && node tests/composer-first-readiness-smoke.js && node tests/no-reload-loop-smoke.js && node tests/budget-guard-smoke.js && node tests/minimal-three-project-smoke.js && node tests/chat-identity-draft-smoke.js && node tests/send-transaction-smoke.js && node tests/own-draft-retry-smoke.js && node tests/watchdog-survival-smoke.js",
+     "dist:win": "electron-builder --win nsis",
+     "pack:win": "electron-builder --win dir",
+     "dev:once": "electron ."
+diff --git a/package-lock.json b/package-lock.json
+--- a/package-lock.json
++++ b/package-lock.json
+@@ -1,12 +1,12 @@
+ {
+   "name": "aegis-chatgpt-client",
+-  "version": "1.2.4",
++  "version": "1.2.5",
+   "lockfileVersion": 3,
+   "requires": true,
+   "packages": {
+     "": {
+       "name": "aegis-chatgpt-client",
+-      "version": "1.2.4",
++      "version": "1.2.5",
+       "dependencies": {
+         "@google/genai": "^2.12.0",
+         "mammoth": "1.8.0",
+diff --git a/tests/watchdog-survival-smoke.js b/tests/watchdog-survival-smoke.js
+new file mode 100644
+--- /dev/null
++++ b/tests/watchdog-survival-smoke.js
+@@ -0,0 +1,22 @@
++const fs = require('fs');
++
++const source = fs.readFileSync('main.js', 'utf8');
++const unresponsiveStart = source.indexOf("chatView.webContents.on('unresponsive'");
++const responsiveStart = source.indexOf("chatView.webContents.on('responsive'");
++const renderGoneStart = source.indexOf("chatView.webContents.on('render-process-gone'");
++
++if (unresponsiveStart < 0 || responsiveStart < 0 || renderGoneStart < 0) {
++  throw new Error('Renderer recovery handlers are missing.');
++}
++
++const unresponsiveHandler = source.slice(unresponsiveStart, responsiveStart);
++const responsiveHandler = source.slice(responsiveStart, renderGoneStart);
++
++if (unresponsiveHandler.includes('clearInterval(autopilotWatchdogTimer)')) {
++  throw new Error('Unresponsive renderer still disables the autopilot watchdog.');
++}
++if (responsiveHandler.includes('clearInterval(autopilotWatchdogTimer)')) {
++  throw new Error('Responsive renderer still disables the autopilot watchdog.');
++}
++if (!source.includes('autopilotWatchdogTimer = setInterval(runAutopilotWatchdog, 8000)')) {
++  throw new Error('Autopilot watchdog startup is missing.');
++}
++
++console.log('autopilot watchdog survival smoke test: OK');
