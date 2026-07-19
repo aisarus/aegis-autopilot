@@ -1,0 +1,72 @@
+diff --git a/main.js b/main.js
+index a3e5750..100994b 100644
+--- a/main.js
++++ b/main.js
+@@ -1234,7 +1234,7 @@ async function runSupervisor({ trigger = 'manual', typedCommand = '', audioBase6
+       if (error?.code === 'GEMINI_INCOMPLETE') {
+         active.autopilotState = 'watching';
+         active.autopilotPauseReason = '';
+-        enqueueAutopilotScan(active.id, { delayMs: 15000, reason: 'gemini-incomplete-retry' });
++        scheduleAutopilotScan(active.id, { delay: 15000 });
+       } else {
+         active.autopilotState = 'error';
+         active.autopilotPauseReason = detail;
+diff --git a/package-lock.json b/package-lock.json
+index 10c68a0..a78382c 100644
+--- a/package-lock.json
++++ b/package-lock.json
+@@ -1,12 +1,12 @@
+ {
+   "name": "aegis-chatgpt-client",
+-  "version": "1.2.8",
++  "version": "1.2.9",
+   "lockfileVersion": 3,
+   "requires": true,
+   "packages": {
+     "": {
+       "name": "aegis-chatgpt-client",
+-      "version": "1.2.8",
++      "version": "1.2.9",
+       "dependencies": {
+         "@google/genai": "^2.12.0",
+         "mammoth": "1.8.0",
+diff --git a/package.json b/package.json
+index 63b3af4..dc8d695 100644
+--- a/package.json
++++ b/package.json
+@@ -1,13 +1,13 @@
+ {
+   "name": "aegis-chatgpt-client",
+-  "version": "1.2.8",
+-  "description": "Minimal three-project autopilot with retry-safe supervisor processing",
++  "version": "1.2.9",
++  "description": "Minimal three-project autopilot with valid Gemini retry scheduling",
+   "main": "main.js",
+   "private": true,
+   "scripts": {
+     "start": "electron .",
+     "dev": "electron .",
+-    "test": "node tests/multi-chat-smoke.js && node tests/autopilot-resilience-smoke.js && node tests/send-contract-smoke.js && node tests/composer-first-readiness-smoke.js && node tests/no-reload-loop-smoke.js && node tests/budget-guard-smoke.js && node tests/minimal-three-project-smoke.js && node tests/chat-identity-draft-smoke.js && node tests/send-transaction-smoke.js && node tests/own-draft-retry-smoke.js && node tests/watchdog-survival-smoke.js && node tests/quiet-heartbeat-log-smoke.js && node tests/response-gate-recovery-smoke.js && node tests/supervisor-processing-retry-smoke.js",
++    "test": "node tests/multi-chat-smoke.js && node tests/autopilot-resilience-smoke.js && node tests/send-contract-smoke.js && node tests/composer-first-readiness-smoke.js && node tests/no-reload-loop-smoke.js && node tests/budget-guard-smoke.js && node tests/minimal-three-project-smoke.js && node tests/chat-identity-draft-smoke.js && node tests/send-transaction-smoke.js && node tests/own-draft-retry-smoke.js && node tests/watchdog-survival-smoke.js && node tests/quiet-heartbeat-log-smoke.js && node tests/response-gate-recovery-smoke.js && node tests/supervisor-processing-retry-smoke.js && node tests/gemini-incomplete-retry-smoke.js",
+     "dist:win": "electron-builder --win nsis",
+     "pack:win": "electron-builder --win dir",
+     "dev:once": "electron ."
+diff --git a/tests/gemini-incomplete-retry-smoke.js b/tests/gemini-incomplete-retry-smoke.js
+new file mode 100644
+index 0000000..88b017b
+--- /dev/null
++++ b/tests/gemini-incomplete-retry-smoke.js
+@@ -0,0 +1,13 @@
++const fs = require('fs');
++
++const source = fs.readFileSync('main.js', 'utf8');
++if (source.includes('enqueueAutopilotScan(')) {
++  throw new Error('Undefined enqueueAutopilotScan call still exists.');
++}
++if (!source.includes("scheduleAutopilotScan(active.id, { delay: 15000 })")) {
++  throw new Error('Incomplete Gemini responses are not rescheduled with the real scheduler.');
++}
++if (!source.includes("error?.code === 'GEMINI_INCOMPLETE'")) {
++  throw new Error('Gemini incomplete-response recovery branch is missing.');
++}
++console.log('Gemini incomplete response retry smoke test: OK');
