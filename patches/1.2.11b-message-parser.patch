@@ -1,0 +1,249 @@
+diff --git a/chatgpt-preload.js b/chatgpt-preload.js
+index b1cdbd2..5ff5213 100644
+--- a/chatgpt-preload.js
++++ b/chatgpt-preload.js
+@@ -38,6 +38,7 @@ let lastFingerprint = '';
+ let scheduled = null;
+ let lastAssistantChangeAt = 0;
+ let lastAssistantFingerprint = '';
++let lastMessageScan = { candidateCount: 0, assistantCount: 0, userCount: 0 };
+ 
+ 
+ function cleanText(value, max = 12000) {
+@@ -177,48 +178,166 @@ function systemBlockDetected() {
+   ].some((phrase) => text.includes(phrase));
+ }
+ 
++function messageHost(node) {
++  if (!node) return null;
++  if (node.matches?.('article, [data-testid^="conversation-turn-"], [data-testid*="conversation-turn"], [data-turn-id], [data-message-id]')) return node;
++  return node.closest?.('article, [data-testid^="conversation-turn-"], [data-testid*="conversation-turn"], [data-turn-id], [data-message-id]') || node;
++}
++
++function explicitMessageRole(node) {
++  if (!node) return '';
++  const roleCarrier = node.matches?.('[data-message-author-role], [data-author], [data-role]')
++    ? node
++    : node.querySelector?.('[data-message-author-role], [data-author], [data-role]');
++  for (const value of [
++    roleCarrier?.getAttribute?.('data-message-author-role'),
++    roleCarrier?.getAttribute?.('data-author'),
++    roleCarrier?.getAttribute?.('data-role')
++  ]) {
++    const role = cleanText(value, 40).toLocaleLowerCase();
++    if (['assistant', 'chatgpt', 'bot', 'model'].includes(role)) return 'assistant';
++    if (['user', 'human', 'you'].includes(role)) return 'user';
++  }
++
++  const signature = cleanText([
++    node.getAttribute?.('data-testid'),
++    node.getAttribute?.('aria-label'),
++    roleCarrier?.getAttribute?.('data-testid'),
++    roleCarrier?.getAttribute?.('aria-label')
++  ].filter(Boolean).join(' '), 500).toLocaleLowerCase();
++  if (/assistant(?:-|_)?message|chatgpt(?:-|_)?message|message(?:-|_)?assistant/.test(signature)) return 'assistant';
++  if (/user(?:-|_)?message|human(?:-|_)?message|message(?:-|_)?user/.test(signature)) return 'user';
++
++  const headingNode = node.querySelector?.('h4, h5, h6, [data-testid*="message-author"]');
++  const heading = cleanText(headingNode?.innerText || headingNode?.textContent || node.getAttribute?.('aria-label'), 180).toLocaleLowerCase();
++  if (/chatgpt|assistant|chatgpt said|chatgpt сказал|ответ chatgpt/.test(heading)) return 'assistant';
++  if (/you said|user said|вы сказали|пользователь сказал|אתה אמרת/.test(heading)) return 'user';
++
++  const assistantContent = node.querySelector?.('.markdown, [class*="markdown"], [data-testid*="assistant-message"]');
++  const userContent = node.querySelector?.('.whitespace-pre-wrap, [class*="whitespace-pre-wrap"], [data-testid*="user-message"]');
++  if (assistantContent) return 'assistant';
++  if (userContent) return 'user';
++  return '';
++}
++
++function messageContentNode(host, roleNode, role) {
++  if (!host) return null;
++  const selectors = role === 'assistant'
++    ? [
++        '[data-message-author-role="assistant"] .markdown',
++        '[data-author="assistant"] .markdown',
++        '[data-role="assistant"] .markdown',
++        '[data-testid*="assistant-message"] .markdown',
++        '.markdown',
++        '[class*="markdown"]',
++        '[data-message-author-role="assistant"]',
++        '[data-author="assistant"]',
++        '[data-role="assistant"]'
++      ]
++    : [
++        '[data-message-author-role="user"] .whitespace-pre-wrap',
++        '[data-author="user"] .whitespace-pre-wrap',
++        '[data-role="user"] .whitespace-pre-wrap',
++        '[data-testid*="user-message"] .whitespace-pre-wrap',
++        '.whitespace-pre-wrap',
++        '[class*="whitespace-pre-wrap"]',
++        '[data-message-author-role="user"]',
++        '[data-author="user"]',
++        '[data-role="user"]'
++      ];
++  for (const selector of selectors) {
++    const candidate = host.matches?.(selector) ? host : host.querySelector?.(selector);
++    if (candidate && (isVisible(candidate) || isVisible(host) || isVisible(roleNode))) return candidate;
++  }
++  return roleNode || host;
++}
++
++function conversationMessageCandidates() {
++  const adapter = activeAdapter();
++  const selectors = [
++    ...(adapter.selectors.messageTurns || []),
++    ...(adapter.selectors.roleNodes || []),
++    '[data-testid^="conversation-turn-"]',
++    '[data-testid*="conversation-turn"]',
++    '[data-message-author-role]',
++    '[data-author="assistant"]',
++    '[data-author="user"]',
++    '[data-role="assistant"]',
++    '[data-role="user"]',
++    '[data-testid*="assistant-message"]',
++    '[data-testid*="user-message"]',
++    '[data-turn-id]',
++    '[data-message-id]'
++  ];
++  const hosts = [];
++  const seen = new Set();
++  for (const selector of selectors) {
++    const scopedSelector = /^main(?:\s|$)/i.test(selector.trim()) ? selector : `main ${selector}`;
++    for (const node of document.querySelectorAll(scopedSelector)) {
++      const host = messageHost(node);
++      if (!host || seen.has(host)) continue;
++      seen.add(host);
++      hosts.push(host);
++    }
++  }
++  return hosts.sort((left, right) => {
++    if (left === right) return 0;
++    return left.compareDocumentPosition(right) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1;
++  });
++}
++
+ function conversationMessages() {
+-  let turns = adapterRegistry.queryAll(document, activeAdapter().selectors.messageTurns).filter(isVisible);
+-  if (!turns.length) turns = adapterRegistry.queryAll(document, activeAdapter().selectors.roleNodes).map((node) => node.closest('article') || node).filter(isVisible);
++  const candidates = conversationMessageCandidates();
+   const messages = [];
+-  for (const turn of turns.slice(-10)) {
+-    const roleNode = turn.matches('[data-message-author-role]') ? turn : turn.querySelector('[data-message-author-role]');
+-    const attributeRole = roleNode?.getAttribute('data-message-author-role');
+-    const heading = cleanText(turn.querySelector('h5, h6')?.innerText, 120).toLocaleLowerCase();
+-    const role = attributeRole === 'assistant' || /chatgpt|assistant|сказал chatgpt/.test(heading) ? 'assistant' : 'user';
+-    const contentNode = turn.querySelector('[data-message-author-role] .markdown, .markdown, [data-message-author-role]') || turn;
+-    let text = cleanMessageText(contentNode.innerText);
+-    text = text.replace(/^(you said:|chatgpt said:|вы сказали:|chatgpt сказал:)\s*/i, '');
++  for (const turn of candidates.slice(-24)) {
++    const roleNode = turn.matches?.('[data-message-author-role], [data-author], [data-role]')
++      ? turn
++      : turn.querySelector?.('[data-message-author-role], [data-author], [data-role]');
++    const role = explicitMessageRole(turn) || explicitMessageRole(roleNode);
++    if (!role) continue;
++    const contentNode = messageContentNode(turn, roleNode, role);
++    let text = cleanMessageText(contentNode?.innerText || contentNode?.textContent || '');
++    text = text.replace(/^(you said:|user said:|chatgpt said:|вы сказали:|пользователь сказал:|chatgpt сказал:|אתה אמרת:?)\s*/i, '');
+     if (!text || messages.some((entry) => entry.role === role && entry.text === text)) continue;
+-    const turnId = cleanText(turn.getAttribute('data-testid') || turn.id || roleNode?.getAttribute('data-message-id') || '', 180);
++    const turnId = cleanText(
++      turn.getAttribute?.('data-message-id')
++      || roleNode?.getAttribute?.('data-message-id')
++      || turn.getAttribute?.('data-turn-id')
++      || turn.getAttribute?.('data-testid')
++      || turn.id
++      || '',
++      180
++    );
+     messages.push({ role, text, id: turnId });
+   }
+-  if (!messages.some((entry) => entry.role === 'assistant')) {
+-    // Last-resort semantic scan. This is intentionally broad and only used when
+-    // the versioned adapter could not see any assistant turns.
+-    const candidates = [...document.querySelectorAll('main article, main [data-message-author-role="assistant"], main [data-testid*="conversation-turn"]')].filter(isVisible);
+-    for (const node of candidates.slice(-12)) {
+-      const explicitRole = cleanText(node.getAttribute('data-message-author-role'), 30).toLowerCase();
+-      const roleNode = node.querySelector('[data-message-author-role]');
+-      const nestedRole = cleanText(roleNode?.getAttribute('data-message-author-role'), 30).toLowerCase();
+-      const role = explicitRole || nestedRole;
+-      if (role !== 'assistant') continue;
+-      const text = cleanText(node.innerText || node.textContent, 120000);
+-      if (!text) continue;
+-      const id = cleanText(node.getAttribute('data-testid') || node.id || '', 180);
+-      if (!messages.some((entry) => entry.role === 'assistant' && entry.text === text)) messages.push({ role: 'assistant', text, id });
+-    }
+-  }
+-  return messages.slice(-8);
++  const result = messages.slice(-12);
++  lastMessageScan = {
++    candidateCount: candidates.length,
++    assistantCount: result.filter((message) => message.role === 'assistant').length,
++    userCount: result.filter((message) => message.role === 'user').length
++  };
++  return result;
+ }
+ 
+ function fallbackAssistantMessage() {
+-  const explicit = [...document.querySelectorAll('main [data-message-author-role="assistant"]')].filter(isVisible).at(-1);
+-  if (explicit) {
+-    const host = explicit.closest('article, [data-testid*="conversation-turn"]') || explicit;
+-    const text = cleanMessageText((host.querySelector('.markdown') || explicit).innerText || explicit.textContent);
+-    if (text) return { role: 'assistant', text, id: cleanText(host.id || host.getAttribute('data-testid') || '', 180) };
++  const parsed = conversationMessages().filter((message) => message.role === 'assistant' && message.text);
++  if (parsed.length) return parsed.at(-1);
++
++  const explicitSelectors = [
++    'main [data-message-author-role="assistant"]',
++    'main [data-author="assistant"]',
++    'main [data-role="assistant"]',
++    'main [data-testid*="assistant-message"]'
++  ];
++  for (const selector of explicitSelectors) {
++    const explicit = [...document.querySelectorAll(selector)].filter((node) => isVisible(node) || isVisible(messageHost(node))).at(-1);
++    if (!explicit) continue;
++    const host = messageHost(explicit);
++    const content = messageContentNode(host, explicit, 'assistant');
++    const text = cleanMessageText(content?.innerText || content?.textContent || '');
++    if (text) return { role: 'assistant', text, id: cleanText(host?.id || host?.getAttribute?.('data-testid') || '', 180) };
+   }
++
+   // Current ChatGPT builds keep action buttons (copy / feedback / retry) under
+   // assistant turns. Walk upward from the last such toolbar instead of relying
+   // on one version-specific class name.
+@@ -229,9 +348,9 @@ function fallbackAssistantMessage() {
+   });
+   for (const button of actionButtons.reverse()) {
+     let node = button.parentElement;
+-    for (let depth = 0; node && depth < 8; depth += 1, node = node.parentElement) {
+-      if (!node.matches?.('article, [data-testid*="conversation-turn"], main > div > div')) continue;
+-      const textNode = node.querySelector?.('.markdown, [class*="markdown"], [data-message-author-role="assistant"]');
++    for (let depth = 0; node && depth < 10; depth += 1, node = node.parentElement) {
++      if (!node.matches?.('article, [data-testid*="conversation-turn"], [data-turn-id], [data-message-id], main > div > div')) continue;
++      const textNode = node.querySelector?.('.markdown, [class*="markdown"], [data-message-author-role="assistant"], [data-author="assistant"], [data-role="assistant"]');
+       const text = cleanMessageText((textNode || node).innerText || (textNode || node).textContent);
+       if (text && text.length > 8) return { role: 'assistant', text, id: cleanText(node.id || node.getAttribute?.('data-testid') || '', 180) };
+     }
+@@ -352,6 +471,9 @@ function inspect() {
+       mainFound: Boolean(document.querySelector('main')),
+       chatLinkCount: chats.length,
+       messageCount: messages.length,
++      messageCandidateCount: lastMessageScan.candidateCount,
++      assistantMessageCount: lastMessageScan.assistantCount,
++      userMessageCount: lastMessageScan.userCount,
+       loadingIndicator: loadingConversation,
+       generating,
+       limitDetected
+@@ -442,10 +564,10 @@ async function setComposerText(element, text) {
+ function explicitUserMessages() {
+   const seen = new Set();
+   const messages = [];
+-  const nodes = [...document.querySelectorAll('main [data-message-author-role="user"]')].filter(isVisible);
++  const nodes = [...document.querySelectorAll('main [data-message-author-role="user"], main [data-author="user"], main [data-role="user"], main [data-testid*="user-message"]')].filter((node) => isVisible(node) || isVisible(messageHost(node)));
+   for (const roleNode of nodes) {
+-    const host = roleNode.closest('article, [data-testid*="conversation-turn"]') || roleNode;
+-    const contentNode = host.querySelector('[data-message-author-role="user"] .whitespace-pre-wrap, [data-message-author-role="user"] [class*="whitespace-pre-wrap"], [data-message-author-role="user"]') || roleNode;
++    const host = messageHost(roleNode);
++    const contentNode = messageContentNode(host, roleNode, 'user') || roleNode;
+     const text = cleanMessageText(contentNode.innerText || contentNode.textContent, 24000);
+     if (!text) continue;
+     const messageId = cleanText(host.getAttribute('data-message-id') || roleNode.getAttribute('data-message-id') || host.getAttribute('data-testid') || host.id || '', 180);
