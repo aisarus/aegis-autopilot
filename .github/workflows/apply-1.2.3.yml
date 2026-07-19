@@ -1,0 +1,46 @@
+name: Apply Aegis 1.2.3 patch
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/apply-1.2.3.yml'
+      - 'patches/1.2.3-conversation-bound-send.patch'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Apply patch
+        shell: bash
+        run: |
+          if grep -q '"version": "1.2.3"' package.json; then
+            echo 'Aegis 1.2.3 is already applied.'
+            exit 0
+          fi
+          git apply --check patches/1.2.3-conversation-bound-send.patch
+          git apply patches/1.2.3-conversation-bound-send.patch
+      - name: Verify syntax and tests
+        shell: bash
+        run: |
+          node --check main.js
+          node --check chatgpt-preload.js
+          npm test
+      - name: Commit verified patch
+        shell: bash
+        run: |
+          if git diff --quiet; then
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add main.js chatgpt-preload.js package.json package-lock.json tests/send-contract-smoke.js
+          git commit -m 'fix: bind verified sends to the target conversation'
+          git push origin HEAD:main
