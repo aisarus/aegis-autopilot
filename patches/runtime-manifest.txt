@@ -1,0 +1,2 @@
+# Applied in order by update-and-run.cmd inside an isolated git worktree.
+1.2.4-own-draft-retry.patch
