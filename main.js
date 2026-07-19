@@ -522,7 +522,7 @@ async function dispatchNext({ chatId = state.activeChatId, manual = false } = {}
     await commit();
     const beforeHash = responseHash(state.browser.messages);
     responseGate = { chatId: chat.id, itemId: item.id, beforeHash, started: false, generationSeen: false, lastHash: '', stableSince: 0, openedAt: Date.now() };
-    const sent = await sendChatCommand('send', { text: item.text }, 15000);
+    const sent = await sendChatCommand('send', { text: item.text, targetUrl: chat.url }, 22000);
     if (!sent.ok) throw new Error(sent.error || 'ChatGPT не подтвердил отправку.');
     item.status = 'sent';
     item.sentAt = now();

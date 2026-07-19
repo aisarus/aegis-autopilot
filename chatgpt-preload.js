@@ -439,11 +439,36 @@ async function setComposerText(element, text) {
   return composerValue(element);
 }
 
-function userMessageFingerprint() {
-  const messages = conversationMessages();
-  const users = messages.filter((message) => message.role === 'user');
+function explicitUserMessages() {
+  const seen = new Set();
+  const messages = [];
+  const nodes = [...document.querySelectorAll('main [data-message-author-role="user"]')].filter(isVisible);
+  for (const roleNode of nodes) {
+    const host = roleNode.closest('article, [data-testid*="conversation-turn"]') || roleNode;
+    const contentNode = host.querySelector('[data-message-author-role="user"] .whitespace-pre-wrap, [data-message-author-role="user"] [class*="whitespace-pre-wrap"], [data-message-author-role="user"]') || roleNode;
+    const text = cleanMessageText(contentNode.innerText || contentNode.textContent, 24000);
+    if (!text) continue;
+    const messageId = cleanText(host.getAttribute('data-message-id') || roleNode.getAttribute('data-message-id') || host.getAttribute('data-testid') || host.id || '', 180);
+    const key = `${messageId}:${text}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    messages.push({ id: messageId, text });
+  }
+  if (messages.length) return messages;
+  return conversationMessages().filter((message) => message.role === 'user');
+}
+
+function userMessageEvidence(intendedText = '') {
+  const users = explicitUserMessages();
   const last = users.at(-1);
-  return `${users.length}:${last?.id || ''}:${cleanText(last?.text || '', 800)}`;
+  const intended = cleanMessageText(intendedText, 24000);
+  const lastText = cleanMessageText(last?.text || '', 24000);
+  return {
+    fingerprint: `${users.length}:${last?.id || ''}:${cleanText(lastText, 1200)}`,
+    count: users.length,
+    lastText,
+    intendedMatch: Boolean(intended && lastText === intended)
+  };
 }
 
 function pressEnterToSend(element) {
@@ -507,7 +532,9 @@ async function executeCommand(type, payload) {
   }
   if (type === 'send') {
     const text = String(payload?.text || '').trim();
+    const targetUrl = normalizedUrl(payload?.targetUrl);
     if (!text) throw new Error('Пустое сообщение не отправляется.');
+    if (targetUrl && !sameUrl(location.href, targetUrl)) throw new Error('Открыт другой разговор ChatGPT. Отправка отменена до завершения навигации.');
     if (generatingNow()) throw new Error('ChatGPT ещё отвечает.');
     if (systemBlockDetected()) throw new Error('ChatGPT показывает лимит или блокировку.');
     const composer = composerElement();
@@ -515,33 +542,35 @@ async function executeCommand(type, payload) {
     const existingDraft = cleanText(composerValue(composer));
     const intendedText = cleanText(text);
     if (existingDraft && existingDraft !== intendedText) throw new Error('В поле ChatGPT уже есть другой черновик.');
-    const beforeUser = userMessageFingerprint();
+    const beforeUser = userMessageEvidence(intendedText);
     if (existingDraft !== intendedText) await setComposerText(composer, text);
     const filled = await waitFor(() => cleanText(composerValue(composer)) === intendedText, 5000);
     if (!filled) throw new Error('ChatGPT не принял текст в поле ввода.');
+    if (targetUrl && !sameUrl(location.href, targetUrl)) throw new Error('ChatGPT переключил разговор во время заполнения поля. Отправка отменена.');
 
     let method = await submitComposer(composer);
-    let accepted = await waitFor(() => {
-      const composerCleared = !composerValue(composer);
-      const newUserMessage = userMessageFingerprint() !== beforeUser;
-      return (composerCleared && (newUserMessage || generatingNow())) ? { composerCleared, newUserMessage } : null;
-    }, 6000);
+    const verifyAccepted = () => {
+      if (targetUrl && !sameUrl(location.href, targetUrl)) return null;
+      const evidence = userMessageEvidence(intendedText);
+      const newUserMessage = evidence.fingerprint !== beforeUser.fingerprint && evidence.intendedMatch;
+      return newUserMessage ? { composerCleared: !composerValue(composer), newUserMessage, evidence } : null;
+    };
+    let accepted = await waitFor(verifyAccepted, 9000);
 
     if (!accepted) {
-      // React/Lexical sometimes ignores a synthetic click after a DOM update.
-      // Re-focus and use Enter as an independent fallback, then verify again.
-      pressEnterToSend(composer);
-      method = `${method}+enter`;
-      accepted = await waitFor(() => {
-        const composerCleared = !composerValue(composer);
-        const newUserMessage = userMessageFingerprint() !== beforeUser;
-        return (composerCleared && (newUserMessage || generatingNow())) ? { composerCleared, newUserMessage } : null;
-      }, 6000);
+      const remainingDraft = cleanText(composerValue(composer));
+      // Never press Enter after ChatGPT has already consumed the composer: the
+      // user turn may simply be late to render, and retrying here can duplicate it.
+      if (remainingDraft === intendedText && !generatingNow() && (!targetUrl || sameUrl(location.href, targetUrl))) {
+        pressEnterToSend(composer);
+        method = `${method}+enter`;
+      }
+      accepted = await waitFor(verifyAccepted, 9000);
     }
 
-    if (!accepted) throw new Error('ChatGPT не подтвердил отправку: сообщение осталось в поле или не появилось в диалоге.');
+    if (!accepted) throw new Error('ChatGPT не подтвердил отправку новым сообщением пользователя в нужном разговоре. Повтор будет выполнен безопасно.');
     emitSnapshot(true);
-    return { ok: true, verified: true, method };
+    return { ok: true, verified: true, method, conversationKey: conversationKey(location.href), userMessageFingerprint: accepted.evidence.fingerprint };
   }
   throw new Error(`Неизвестная команда: ${type}`);
 }

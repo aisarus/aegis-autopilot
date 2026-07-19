@@ -5,7 +5,7 @@ const required = [
   "new InputEvent('beforeinput'",
   'form.requestSubmit()',
   'pressEnterToSend(composer)',
-  'userMessageFingerprint() !== beforeUser',
+  'evidence.fingerprint !== beforeUser.fingerprint && evidence.intendedMatch',
   "ChatGPT не подтвердил отправку"
 ];
 for (const token of required) {
