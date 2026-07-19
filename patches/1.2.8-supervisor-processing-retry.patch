@@ -70,7 +70,7 @@ diff --git a/main.js b/main.js
  }
  
  function stripHtml(html) {
- diff --git a/package.json b/package.json
+diff --git a/package.json b/package.json
 --- a/package.json
 +++ b/package.json
 @@ -1,13 +1,13 @@
@@ -90,7 +90,7 @@ diff --git a/main.js b/main.js
      "dist:win": "electron-builder --win nsis",
      "pack:win": "electron-builder --win dir",
      "dev:once": "electron ."
- diff --git a/package-lock.json b/package-lock.json
+diff --git a/package-lock.json b/package-lock.json
 --- a/package-lock.json
 +++ b/package-lock.json
 @@ -1,12 +1,12 @@
@@ -108,7 +108,7 @@ diff --git a/main.js b/main.js
        "dependencies": {
          "@google/genai": "^2.12.0",
          "mammoth": "1.8.0",
- diff --git a/tests/supervisor-processing-retry-smoke.js b/tests/supervisor-processing-retry-smoke.js
+diff --git a/tests/supervisor-processing-retry-smoke.js b/tests/supervisor-processing-retry-smoke.js
 new file mode 100644
 --- /dev/null
 +++ b/tests/supervisor-processing-retry-smoke.js
