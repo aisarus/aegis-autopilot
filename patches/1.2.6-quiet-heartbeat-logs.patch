@@ -1,0 +1,87 @@
+diff --git a/main.js b/main.js
+--- a/main.js
++++ b/main.js
+@@ -458,7 +458,7 @@ function sendChatCommand(type, payload = {}, timeoutMs = 12000) {
+       pendingCommands.delete(commandId);
+       resolve({ ok: false, error: `ChatGPT не подтвердил команду ${type} за ${Math.round(timeoutMs / 1000)} секунд.` });
+     }, timeoutMs);
+-    pendingCommands.set(commandId, { resolve, timeout });
++    pendingCommands.set(commandId, { resolve, timeout, type });
+     chatView.webContents.send('aegis-chat:command', { commandId, type, payload });
+   });
+ }
+@@ -1426,8 +1426,10 @@ function registerIpc() {
+     const pending = pendingCommands.get(result?.commandId);
+     if (!pending) return;
+     clearTimeout(pending.timeout);
+     pendingCommands.delete(result.commandId);
++    const commandType = String(pending.type || '');
+     if (!result?.ok) writeLog('warn', 'Chat command failed', `${result?.commandId || ''}: ${result?.error || 'unknown error'}`);
+-    else writeLog('info', 'Chat command completed', `${result?.commandId || ''}: ${result?.method || 'ok'}`);
++    else if (!['inspect', 'apply-skin'].includes(commandType)) {
++      writeLog('info', 'Chat command completed', `${result?.commandId || ''}: ${commandType}:${result?.method || 'ok'}`);
++    }
+     pending.resolve(result);
+   });
+diff --git a/package.json b/package.json
+--- a/package.json
++++ b/package.json
+@@ -1,13 +1,13 @@
+ {
+   "name": "aegis-chatgpt-client",
+-  "version": "1.2.5",
+-  "description": "Minimal three-project autopilot with a persistent recovery watchdog",
++  "version": "1.2.6",
++  "description": "Minimal three-project autopilot with low-noise runtime diagnostics",
+   "main": "main.js",
+   "private": true,
+   "scripts": {
+     "start": "electron .",
+     "dev": "electron .",
+-    "test": "node tests/multi-chat-smoke.js && node tests/autopilot-resilience-smoke.js && node tests/send-contract-smoke.js && node tests/composer-first-readiness-smoke.js && node tests/no-reload-loop-smoke.js && node tests/budget-guard-smoke.js && node tests/minimal-three-project-smoke.js && node tests/chat-identity-draft-smoke.js && node tests/send-transaction-smoke.js && node tests/own-draft-retry-smoke.js && node tests/watchdog-survival-smoke.js",
++    "test": "node tests/multi-chat-smoke.js && node tests/autopilot-resilience-smoke.js && node tests/send-contract-smoke.js && node tests/composer-first-readiness-smoke.js && node tests/no-reload-loop-smoke.js && node tests/budget-guard-smoke.js && node tests/minimal-three-project-smoke.js && node tests/chat-identity-draft-smoke.js && node tests/send-transaction-smoke.js && node tests/own-draft-retry-smoke.js && node tests/watchdog-survival-smoke.js && node tests/quiet-heartbeat-log-smoke.js",
+     "dist:win": "electron-builder --win nsis",
+     "pack:win": "electron-builder --win dir",
+     "dev:once": "electron ."
+diff --git a/package-lock.json b/package-lock.json
+--- a/package-lock.json
++++ b/package-lock.json
+@@ -1,12 +1,12 @@
+ {
+   "name": "aegis-chatgpt-client",
+-  "version": "1.2.5",
++  "version": "1.2.6",
+   "lockfileVersion": 3,
+   "requires": true,
+   "packages": {
+     "": {
+       "name": "aegis-chatgpt-client",
+-      "version": "1.2.5",
++      "version": "1.2.6",
+       "dependencies": {
+         "@google/genai": "^2.12.0",
+         "mammoth": "1.8.0",
+diff --git a/tests/quiet-heartbeat-log-smoke.js b/tests/quiet-heartbeat-log-smoke.js
+new file mode 100644
+--- /dev/null
++++ b/tests/quiet-heartbeat-log-smoke.js
+@@ -0,0 +1,18 @@
++const fs = require('fs');
++
++const source = fs.readFileSync('main.js', 'utf8');
++const required = [
++  'pendingCommands.set(commandId, { resolve, timeout, type })',
++  "const commandType = String(pending.type || '')",
++  "!['inspect', 'apply-skin'].includes(commandType)",
++  "${commandType}:${result?.method || 'ok'}"
++];
++
++for (const token of required) {
++  if (!source.includes(token)) throw new Error(`Missing quiet heartbeat logging contract: ${token}`);
++}
++
++if (!source.includes("writeLog('warn', 'Chat command failed'")) {
++  throw new Error('Command failures must remain logged.');
++}
++
++console.log('quiet heartbeat command logging smoke test: OK');
