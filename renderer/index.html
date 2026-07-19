@@ -1,0 +1,17 @@
+<!doctype html><html lang="ru"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Aegis</title><link rel="stylesheet" href="app.css"></head>
+<body>
+<aside id="panel">
+  <header><div><b>Aegis Autopilot</b><small id="chat-status">ChatGPT загружается…</small></div><span id="api-dot">●</span></header>
+  <section class="controls">
+    <button id="start" class="primary">▶ Включить автопилот</button>
+    <button id="stop">■ Выключить автопилот</button>
+    <button id="check">↻ Проверить сейчас</button>
+  </section>
+  <section><div class="section-title">Проекты <button id="pin">+ текущий чат</button></div><div id="chats"></div></section>
+  <section class="budget"><div class="section-title">Бюджет Gemini</div><div class="row"><span>Сегодня</span><b id="spent">$0.00 / $0.50</b></div><progress id="budget-progress" max="100" value="0"></progress><div class="row"><span>Вызовы</span><b id="calls">0 / 250</b></div></section>
+  <section class="status"><div class="section-title">Состояние</div><div id="summary"></div></section>
+  <section class="footer-actions"><button id="logs">Открыть лог</button><button id="copy">Скопировать диагностику</button><button id="settings">Настройки</button></section>
+</aside>
+<div id="toast"></div>
+<dialog id="settings-dialog"><form method="dialog"><h3>Настройки</h3><label>Gemini API key<input id="key" type="password" placeholder="Оставь пустым, чтобы не менять"></label><label>Модель<input id="model"></label><label>Лимит $ в день<input id="money" type="number" min="0" step="0.05"></label><label>Лимит вызовов в день<input id="daily" type="number" min="0"></label><label>Пауза между проверками, сек<input id="cooldown" type="number" min="15"></label><div class="dialog-actions"><button value="cancel">Отмена</button><button id="save" value="default" class="primary">Сохранить</button></div></form></dialog>
+<script src="app.js"></script></body></html>

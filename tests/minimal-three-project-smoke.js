@@ -1,0 +1,11 @@
+const fs=require('fs');const assert=require('assert');
+const main=fs.readFileSync('main.js','utf8');const html=fs.readFileSync('renderer/index.html','utf8');const app=fs.readFileSync('renderer/app.js','utf8');
+assert(main.includes("ipcMain.handle('aegis:start-all-autopilots'"),'global start handler missing');
+assert(main.includes('const selected = state.chats.slice(0, 3)'),'three-project cap missing');
+assert(main.includes("chat.autopilotState = 'retrying'"),'recoverable retry state missing');
+assert(!main.includes("chat.autopilotFailures >= 6 ? 'circuit-open'"),'permanent circuit breaker remains');
+assert(main.includes('scheduleAutopilotScan(chat.id, { delay: Math.max(15000'),'watching chats are not rechecked');
+assert(html.includes('Включить автопилот')&&html.includes('Открыть лог')&&html.includes('Бюджет Gemini'),'minimal controls missing');
+assert(!html.includes('graph.js'),'3D renderer still loaded');
+assert(app.includes('startAllAutopilots')&&app.includes('stopAllAutopilots')&&app.includes('checkAllAutopilots'),'minimal UI not wired');
+console.log('minimal three-project autopilot smoke test: OK');
