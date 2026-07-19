@@ -9,3 +9,4 @@
 1.2.11a-message-adapters.patch
 1.2.11b-message-parser.patch
 1.2.11c-message-diagnostics.patch
+1.2.12-single-pass-message-scan.patch
