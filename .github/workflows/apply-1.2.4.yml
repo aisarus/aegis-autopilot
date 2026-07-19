@@ -1,0 +1,45 @@
+name: Apply Aegis 1.2.4 patch
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/apply-1.2.4.yml'
+      - 'patches/1.2.4-own-draft-retry.patch'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apply:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Apply patch
+        shell: bash
+        run: |
+          if grep -q '"version": "1.2.4"' package.json; then
+            echo 'Aegis 1.2.4 is already applied.'
+            exit 0
+          fi
+          git apply --check patches/1.2.4-own-draft-retry.patch
+          git apply patches/1.2.4-own-draft-retry.patch
+      - name: Verify syntax and tests
+        shell: bash
+        run: |
+          node --check main.js
+          npm test
+      - name: Commit verified patch
+        shell: bash
+        run: |
+          if git diff --quiet; then
+            exit 0
+          fi
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add main.js package.json package-lock.json tests/own-draft-retry-smoke.js
+          git commit -m 'fix: automatically retry Aegis-owned drafts'
+          git push origin HEAD:main
