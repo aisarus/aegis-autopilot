@@ -6,3 +6,6 @@
 1.2.8-supervisor-processing-retry.patch
 1.2.9-gemini-incomplete-retry.patch
 1.2.10-review-busy-retry.patch
+1.2.11a-message-adapters.patch
+1.2.11b-message-parser.patch
+1.2.11c-message-diagnostics.patch
