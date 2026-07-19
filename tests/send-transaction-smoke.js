@@ -1,0 +1,11 @@
+const fs = require('fs');
+const assert = require('assert');
+const main = fs.readFileSync('main.js', 'utf8');
+const preload = fs.readFileSync('chatgpt-preload.js', 'utf8');
+assert(main.includes("{ text: item.text, targetUrl: chat.url }"), 'dispatcher must bind send to the target conversation');
+assert(preload.includes("targetUrl && !sameUrl(location.href, targetUrl)"), 'send must reject cross-conversation races');
+assert(preload.includes('function explicitUserMessages()'), 'send verification needs a direct user-turn scanner');
+assert(preload.includes('evidence.fingerprint !== beforeUser.fingerprint && evidence.intendedMatch'), 'send must verify a new exact user turn');
+assert(preload.includes('remainingDraft === intendedText && !generatingNow()'), 'Enter fallback must run only while the intended draft remains');
+assert(preload.includes('Never press Enter after ChatGPT has already consumed the composer'), 'duplicate-send guard must remain documented');
+console.log('conversation-bound send transaction smoke test: OK');
