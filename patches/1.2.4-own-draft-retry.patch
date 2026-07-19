@@ -1,0 +1,121 @@
+diff --git a/main.js b/main.js
+--- a/main.js
++++ b/main.js
+@@ -559,6 +559,15 @@ async function dispatchNext({ chatId = state.activeChatId, manual = false } = {})
+   }
+ }
+ 
++function browserDraftMatchesQueueItem(chat, item = chat ? nextQueueItem(chat.id) : null) {
++  const draft = compact(state.browser.composerText, 2000);
++  if (!draft || !chat || !item) return false;
++  return sameChatUrl(state.browser.url, chat.url) && draft === compact(item.text, 2000);
++}
++
+ function queuedChat(preferredChatId = state.activeChatId) {
+   const candidates = state.chats.filter((chat) => !chat.queuePaused && nextQueueItem(chat.id));
+   if (!candidates.length) return null;
++  const draftOwner = candidates.find((chat) => browserDraftMatchesQueueItem(chat));
++  if (draftOwner) return draftOwner;
+   if (candidates.length === 1) return candidates[0];
+   const lastIndex = state.chats.findIndex((chat) => chat.id === lastDispatchedChatId);
+@@ -668,10 +677,25 @@ async function runAutopilotScheduler() {
+     requestAutopilotScheduler(900);
+     return;
+   }
+   if (state.settings.protectDraft && compact(state.browser.composerText, 100)) {
++    const draftOwner = state.chats.find((candidate) => !candidate.queuePaused && browserDraftMatchesQueueItem(candidate));
++    if (draftOwner) {
++      autopilotSchedulerBusy = true;
++      draftOwner.autopilotState = 'retrying-send';
++      sendState();
++      try {
++        await dispatchNext({ chatId: draftOwner.id });
++      } finally {
++        autopilotSchedulerBusy = false;
++        sendState();
++        if (autopilotScanQueue.length) requestAutopilotScheduler(120);
++        else requestDispatch();
++      }
++      return;
++    }
+     const waiting = chatById(autopilotScanQueue[readyIndex].chatId);
+     if (waiting) waiting.autopilotState = 'waiting-draft';
+     sendState();
++    requestAutopilotScheduler(3000);
+     return;
+   }
+@@ -730,7 +754,8 @@ function requestDispatch() {
+   const chat = queuedChat();
+   if (!chat || !state.settings.autoDispatch || dispatchBusy || responseGate || dispatchTimer) return;
+   if (!state.browser.signedIn || state.browser.generating || state.browser.limitDetected) return;
+-  if (state.settings.protectDraft && compact(state.browser.composerText, 100)) return;
++  const item = nextQueueItem(chat.id);
++  if (state.settings.protectDraft && compact(state.browser.composerText, 100) && !browserDraftMatchesQueueItem(chat, item)) return;
+   dispatchTimer = setTimeout(() => {
+     dispatchTimer = null;
+     dispatchNext({ chatId: chat.id }).catch(() => {});
+diff --git a/package.json b/package.json
+--- a/package.json
++++ b/package.json
+@@ -1,13 +1,13 @@
+ {
+   "name": "aegis-chatgpt-client",
+-  "version": "1.2.3",
+-  "description": "Minimal three-project autopilot with conversation-bound verified sending",
++  "version": "1.2.4",
++  "description": "Minimal three-project autopilot with draft-safe automatic retries",
+   "main": "main.js",
+   "private": true,
+   "scripts": {
+     "start": "electron .",
+     "dev": "electron .",
+-    "test": "node tests/multi-chat-smoke.js && node tests/autopilot-resilience-smoke.js && node tests/send-contract-smoke.js && node tests/composer-first-readiness-smoke.js && node tests/no-reload-loop-smoke.js && node tests/budget-guard-smoke.js && node tests/minimal-three-project-smoke.js && node tests/chat-identity-draft-smoke.js && node tests/send-transaction-smoke.js",
++    "test": "node tests/multi-chat-smoke.js && node tests/autopilot-resilience-smoke.js && node tests/send-contract-smoke.js && node tests/composer-first-readiness-smoke.js && node tests/no-reload-loop-smoke.js && node tests/budget-guard-smoke.js && node tests/minimal-three-project-smoke.js && node tests/chat-identity-draft-smoke.js && node tests/send-transaction-smoke.js && node tests/own-draft-retry-smoke.js",
+     "dist:win": "electron-builder --win nsis",
+     "pack:win": "electron-builder --win dir",
+     "dev:once": "electron ."
+diff --git a/package-lock.json b/package-lock.json
+--- a/package-lock.json
++++ b/package-lock.json
+@@ -1,12 +1,12 @@
+ {
+   "name": "aegis-chatgpt-client",
+-  "version": "1.2.3",
++  "version": "1.2.4",
+   "lockfileVersion": 3,
+   "requires": true,
+   "packages": {
+     "": {
+       "name": "aegis-chatgpt-client",
+-      "version": "1.2.3",
++      "version": "1.2.4",
+       "dependencies": {
+         "@google/genai": "^2.12.0",
+         "mammoth": "1.8.0",
+diff --git a/tests/own-draft-retry-smoke.js b/tests/own-draft-retry-smoke.js
+new file mode 100644
+--- /dev/null
++++ b/tests/own-draft-retry-smoke.js
+@@ -0,0 +1,20 @@
++const fs = require('fs');
++
++const source = fs.readFileSync('main.js', 'utf8');
++const required = [
++  'function browserDraftMatchesQueueItem',
++  "draft === compact(item.text, 2000)",
++  "sameChatUrl(state.browser.url, chat.url)",
++  "autopilotState = 'retrying-send'",
++  'await dispatchNext({ chatId: draftOwner.id })',
++  'requestAutopilotScheduler(3000)',
++  '!browserDraftMatchesQueueItem(chat, item)'
++];
++
++for (const token of required) {
++  if (!source.includes(token)) throw new Error(`Missing own-draft retry contract: ${token}`);
++}
++
++if (!source.includes('const draftOwner = candidates.find((chat) => browserDraftMatchesQueueItem(chat));')) {
++  throw new Error('Queued chat selection does not prioritize the owner of an Aegis draft.');
++}
++
++console.log('own draft automatic retry smoke test: OK');
