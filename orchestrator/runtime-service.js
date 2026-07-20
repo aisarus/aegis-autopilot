@@ -24,22 +24,38 @@ function isoNow(clock) {
   return clock().toISOString();
 }
 
-function redactLikelySecrets(value) {
+function redactLikelySecrets(value, max = 2000) {
   return String(value ?? '')
     .replace(/\bgithub_pat_[A-Za-z0-9_]{20,}\b/g, '[REDACTED]')
     .replace(/\bgh[pousr]_[A-Za-z0-9_]{20,}\b/g, '[REDACTED]')
     .replace(/\bsk-[A-Za-z0-9_-]{20,}\b/g, '[REDACTED]')
     .replace(/\bAIza[0-9A-Za-z_-]{25,}\b/g, '[REDACTED]')
-    .slice(0, 2000);
+    .slice(0, max);
+}
+
+function sanitizeStructured(value, depth = 0) {
+  if (depth > 5) return '[TRUNCATED]';
+  if (value === null || value === undefined) return value ?? null;
+  if (typeof value === 'string') return redactLikelySecrets(value, 1000);
+  if (typeof value === 'number') return Number.isFinite(value) ? value : null;
+  if (typeof value === 'boolean') return value;
+  if (Array.isArray(value)) return value.slice(0, 50).map((entry) => sanitizeStructured(entry, depth + 1));
+  if (typeof value === 'object') {
+    const output = {};
+    for (const [key, entry] of Object.entries(value).slice(0, 50)) {
+      const safeKey = redactLikelySecrets(key, 120);
+      output[safeKey] = sanitizeStructured(entry, depth + 1);
+    }
+    return output;
+  }
+  return redactLikelySecrets(value, 500);
 }
 
 function publicError(error) {
   return {
     code: String(error?.code || 'ERROR').slice(0, 100),
     message: redactLikelySecrets(error?.message || error || 'Unknown error'),
-    details: error?.details && typeof error.details === 'object'
-      ? JSON.parse(redactLikelySecrets(JSON.stringify(error.details)))
-      : {}
+    details: error?.details && typeof error.details === 'object' ? sanitizeStructured(error.details) : {}
   };
 }
 
@@ -115,7 +131,7 @@ class OrchestratorRuntime extends EventEmitter {
       at: isoNow(this.clock),
       type: String(type || 'event').slice(0, 100),
       message: redactLikelySecrets(message),
-      details: JSON.parse(redactLikelySecrets(JSON.stringify(details || {})))
+      details: sanitizeStructured(details || {})
     };
     this.events.unshift(entry);
     this.events = this.events.slice(0, MAX_EVENTS);
@@ -186,7 +202,8 @@ class OrchestratorRuntime extends EventEmitter {
         });
         return baselines;
       } catch (error) {
-        this.event('baseline-failed', publicError(error).message, publicError(error));
+        const safe = publicError(error);
+        this.event('baseline-failed', safe.message, safe);
         throw error;
       } finally {
         this.baselinePromise = null;
@@ -388,5 +405,6 @@ module.exports = {
   RuntimeServiceError,
   publicError,
   publicRun,
-  redactLikelySecrets
+  redactLikelySecrets,
+  sanitizeStructured
 };
