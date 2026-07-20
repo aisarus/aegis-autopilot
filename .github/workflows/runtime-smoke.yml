@@ -11,7 +11,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: aegis-runtime-${{ github.ref }}-${{ matrix.node-version }}
+  group: aegis-runtime-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -34,9 +34,29 @@ jobs:
           cache: npm
 
       - name: Install locked dependencies
-        run: npm ci
+        shell: cmd
+        run: |
+          call npm ci > npm-ci-node-${{ matrix.node-version }}.log 2>&1
+          set CODE=%ERRORLEVEL%
+          type npm-ci-node-${{ matrix.node-version }}.log
+          exit /b %CODE%
 
       - name: Run transactional source preparation and smoke suite
-        run: npm run verify
+        shell: cmd
+        run: |
+          call npm run verify > verify-node-${{ matrix.node-version }}.log 2>&1
+          set CODE=%ERRORLEVEL%
+          type verify-node-${{ matrix.node-version }}.log
+          exit /b %CODE%
         env:
           AEGIS_BUILD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}+runtime-ci
+
+      - name: Upload runtime evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: aegis-runtime-node-${{ matrix.node-version }}-${{ github.run_id }}
+          path: |
+            npm-ci-node-${{ matrix.node-version }}.log
+            verify-node-${{ matrix.node-version }}.log
+          if-no-files-found: warn
