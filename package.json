@@ -1,11 +1,11 @@
 {
   "name": "aegis-chatgpt-client",
   "version": "1.2.4",
-  "description": "Direct-source ChatGPT autopilot with deterministic testing source preparation",
+  "description": "Direct-source ChatGPT autopilot with transactional testing source preparation",
   "main": "main.js",
   "private": true,
   "scripts": {
-    "prepare": "node scripts/prepare-testing-source.js",
+    "prepare": "node scripts/prepare-testing-source-atomic.js",
     "doctor": "node scripts/doctor.js",
     "debug:bundle": "node scripts/create-debug-bundle.js",
     "verify": "npm run prepare && npm run doctor && npm test",
