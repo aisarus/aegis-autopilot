@@ -25,16 +25,20 @@ jobs:
           cache: npm
 
       - name: Install locked dependencies
-        shell: powershell
+        shell: cmd
         run: |
-          npm ci *>&1 | Tee-Object -FilePath npm-ci.log
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          call npm ci > npm-ci.log 2>&1
+          set CODE=%ERRORLEVEL%
+          type npm-ci.log
+          exit /b %CODE%
 
       - name: Prepare and verify source
-        shell: powershell
+        shell: cmd
         run: |
-          npm run verify *>&1 | Tee-Object -FilePath verify.log
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          call npm run verify > verify.log 2>&1
+          set CODE=%ERRORLEVEL%
+          type verify.log
+          exit /b %CODE%
         env:
           AEGIS_BUILD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}+ci
 
