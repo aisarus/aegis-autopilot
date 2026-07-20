@@ -1,13 +1,14 @@
 {
   "name": "aegis-chatgpt-client",
   "version": "1.2.4",
-  "description": "Minimal three-project autopilot with draft-safe automatic retries",
+  "description": "Aegis desktop client with an in-progress GitHub-native project orchestrator",
   "main": "main.js",
   "private": true,
   "scripts": {
     "start": "electron .",
     "dev": "electron .",
     "test": "node tests/multi-chat-smoke.js && node tests/autopilot-resilience-smoke.js && node tests/send-contract-smoke.js && node tests/composer-first-readiness-smoke.js && node tests/no-reload-loop-smoke.js && node tests/budget-guard-smoke.js && node tests/minimal-three-project-smoke.js && node tests/chat-identity-draft-smoke.js && node tests/send-transaction-smoke.js && node tests/own-draft-retry-smoke.js",
+    "test:v2": "node tests/github-connector-v2-smoke.js",
     "dist:win": "electron-builder --win nsis",
     "pack:win": "electron-builder --win dir",
     "dev:once": "electron ."
@@ -33,6 +34,7 @@
       "preload.js",
       "chatgpt-preload.js",
       "adapters/**/*",
+      "orchestrator/**/*",
       "renderer/**/*",
       "package.json",
       "node_modules/**/*"
