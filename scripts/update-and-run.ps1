@@ -41,7 +41,7 @@ function New-NormalizedPatch {
   $raw = [System.IO.File]::ReadAllText($SourcePath)
   $raw = $raw.Replace("`r`n", "`n").Replace("`r", "`n")
   $lines = [System.Text.RegularExpressions.Regex]::Split($raw, "`n")
-  $normalized = New-Object System.Collections.Generic.List[string]
+  $normalized = New-Object 'System.Collections.Generic.List[string]'
   $headerPattern = '^@@ -(?<oldStart>\d+)(?:,(?<oldCount>\d+))? \+(?<newStart>\d+)(?:,(?<newCount>\d+))? @@(?<suffix>.*)$'
 
   $index = 0
@@ -91,8 +91,9 @@ function New-NormalizedPatch {
     New-Item -ItemType Directory -Path $NormalizedPatchDir -Force | Out-Null
   }
   $targetPath = Join-Path $NormalizedPatchDir $PatchName
-  $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
-  [System.IO.File]::WriteAllText($targetPath, (($normalized -join "`n").TrimEnd("`n") + "`n"), $utf8NoBom)
+  $utf8NoBom = New-Object -TypeName System.Text.UTF8Encoding -ArgumentList $false
+  $normalizedText = ($normalized -join "`n").TrimEnd([char]10) + "`n"
+  [System.IO.File]::WriteAllText($targetPath, $normalizedText, $utf8NoBom)
   return $targetPath
 }
 
