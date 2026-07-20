@@ -1,3 +1,16 @@
+diff --git a/main.js b/main.js
+--- a/main.js
++++ b/main.js
+@@ -1666,6 +1666,10 @@ function registerIpc() {
+     } catch (error) { return { ok: false, error: sanitizedGeminiError(error) }; }
+   });
+   ipcMain.handle('aegis:start-all-autopilots', async () => {
++    if (!geminiKeyMetadata().configured) {
++      return { ok: false, needsSetup: true, error: 'Добавь Gemini API key в настройках перед запуском автопилота.' };
++    }
+     if (!state.settings.supervisorEnabled) state.settings.supervisorEnabled = true;
+     state.settings.supervisorMode = 'auto';
+     const selected = state.chats.slice(0, 3);
 diff --git a/renderer/index.html b/renderer/index.html
 --- a/renderer/index.html
 +++ b/renderer/index.html
@@ -41,13 +54,17 @@ new file mode 100644
 diff --git a/renderer/app.js b/renderer/app.js
 --- a/renderer/app.js
 +++ b/renderer/app.js
-@@ -13,6 +13,7 @@ function render(s){state=s;const b=s.browser||{},sup=s.supervisor||{},u=sup.usage
+@@ -11,9 +11,10 @@ function render(s){state=s;const b=s.browser||{},sup=s.supervisor||{},u=sup.usage
+  const chats=(s.chats||[]).slice(0,3);$('#chats').innerHTML=chats.length?chats.map(c=>`<div class="chat ${c.id===s.activeChatId?'active':''}"><div class="chat-head"><input type="checkbox" data-toggle="${c.id}" ${c.autopilotEnabled?'checked':''}><div class="chat-title">${esc(c.title)}</div></div><div class="chat-state">${esc(c.autopilotState||'off')}${c.autopilotPauseReason?` · ${esc(c.autopilotPauseReason)}`:''}</div><div class="chat-actions"><button data-open="${c.id}">Открыть</button><button data-remove="${c.id}">Убрать</button></div></div>`).join(''):'<div>Закрепи до трёх чатов кнопкой «+ текущий чат».</div>';
+  $('#summary').innerHTML=`<div>Активно: <b>${sup.autopilotChatCount||0}</b></div><div>Проверок в очереди: <b>${sup.schedulerQueueCount||0}</b></div><div>Scheduler: <b>${sup.schedulerBusy?'работает':'ожидает'}</b></div><div>Ошибок сегодня: <b>${(s.events||[]).filter(e=>e.tone==='danger').length}</b></div>`;
  }
- $('#start').onclick=()=>call('startAllAutopilots');$('#stop').onclick=()=>call('stopAllAutopilots');$('#check').onclick=()=>call('checkAllAutopilots');$('#pin').onclick=()=>call('pinCurrentChat');$('#logs').onclick=()=>call('openLogs');$('#copy').onclick=async()=>{await call('copyDiagnostics');toast('Диагностика скопирована')};
+-$('#start').onclick=()=>call('startAllAutopilots');$('#stop').onclick=()=>call('stopAllAutopilots');$('#check').onclick=()=>call('checkAllAutopilots');$('#pin').onclick=()=>call('pinCurrentChat');$('#logs').onclick=()=>call('openLogs');$('#copy').onclick=async()=>{await call('copyDiagnostics');toast('Диагностика скопирована')};
++$('#start').onclick=async()=>{const r=await call('startAllAutopilots');if(r?.needsSetup)openSettings()};$('#stop').onclick=()=>call('stopAllAutopilots');$('#check').onclick=()=>call('checkAllAutopilots');$('#pin').onclick=()=>call('pinCurrentChat');$('#logs').onclick=()=>call('openLogs');$('#copy').onclick=async()=>{await call('copyDiagnostics');toast('Диагностика скопирована')};
  $('#chats').onclick=e=>{const t=e.target;if(t.dataset.open)call('openChat',t.dataset.open);if(t.dataset.remove)call('removeChat',t.dataset.remove)};$('#chats').onchange=e=>{if(e.target.dataset.toggle)call('toggleAutopilot',e.target.dataset.toggle)};
 -$('#settings').onclick=()=>{const s=state.settings||{};$('#model').value=s.geminiModel||'gemini-2.5-flash';$('#money').value=s.maxGeminiSpendUsdPerDay??0.5;$('#daily').value=s.maxGeminiCallsPerDay??250;$('#cooldown').value=s.supervisorCooldownSec??30;$('#key').value='';$('#settings-dialog').showModal()};
+-$('#save').onclick=async e=>{e.preventDefault();const r=await call('updateSettings',{geminiKey:$('#key').value,geminiModel:$('#model').value,maxGeminiSpendUsdPerDay:Number($('#money').value),maxGeminiCallsPerDay:Number($('#daily').value),supervisorCooldownSec:Number($('#cooldown').value),supervisorEnabled:true,supervisorMode:'auto',chatSkin:'off'});if(r?.ok)$('#settings-dialog').close()};
 +function openSettings(){const s=state?.settings||{};$('#model').value=s.geminiModel||'gemini-2.5-flash';$('#money').value=s.maxGeminiSpendUsdPerDay??0.5;$('#daily').value=s.maxGeminiCallsPerDay??250;$('#cooldown').value=s.supervisorCooldownSec??30;$('#key').value='';const dialog=$('#settings-dialog');if(!dialog)return toast('Панель настроек не найдена');if(dialog.open)return;if(typeof dialog.showModal==='function')dialog.showModal();else dialog.setAttribute('open','')};$('#settings').onclick=openSettings;
- $('#save').onclick=async e=>{e.preventDefault();const r=await call('updateSettings',{geminiKey:$('#key').value,geminiModel:$('#model').value,maxGeminiSpendUsdPerDay:Number($('#money').value),maxGeminiCallsPerDay:Number($('#daily').value),supervisorCooldownSec:Number($('#cooldown').value),supervisorEnabled:true,supervisorMode:'auto',chatSkin:'off'});if(r?.ok)$('#settings-dialog').close()};
++$('#save').onclick=async e=>{e.preventDefault();const r=await call('updateSettings',{apiKey:$('#key').value,geminiModel:$('#model').value,maxGeminiSpendUsdPerDay:Number($('#money').value),maxGeminiCallsPerDay:Number($('#daily').value),supervisorCooldownSec:Number($('#cooldown').value),supervisorEnabled:true,supervisorMode:'auto',chatSkin:'off'});if(r?.ok)$('#settings-dialog').close()};
  window.aegis.onState(render);window.aegis.getState().then(render);window.aegis.setChatPanel({visible:true});
 diff --git a/package-lock.json b/package-lock.json
 --- a/package-lock.json
@@ -76,7 +93,7 @@ diff --git a/package.json b/package.json
 -  "version": "1.2.18",
 -  "description": "Minimal three-project autopilot with stable runtime identity and provenance",
 +  "version": "1.2.19",
-+  "description": "Minimal three-project autopilot with visible sidebar-scoped settings",
++  "description": "Minimal three-project autopilot with visible and functional Gemini settings",
    "main": "main.js",
    "private": true,
    "scripts": {
@@ -91,17 +108,15 @@ diff --git a/tests/settings-dialog-smoke.js b/tests/settings-dialog-smoke.js
 new file mode 100644
 --- /dev/null
 +++ b/tests/settings-dialog-smoke.js
-@@ -0,0 +1,33 @@
+@@ -0,0 +1,45 @@
 +const fs = require('fs');
 +
 +const html = fs.readFileSync('renderer/index.html', 'utf8');
 +const app = fs.readFileSync('renderer/app.js', 'utf8');
 +const css = fs.readFileSync('renderer/settings.css', 'utf8');
++const main = fs.readFileSync('main.js', 'utf8');
 +
-+for (const token of [
-+  'settings.css',
-+  'id="settings-dialog"'
-+]) {
++for (const token of ['settings.css', 'id="settings-dialog"']) {
 +  if (!html.includes(token)) throw new Error(`Missing settings HTML contract: ${token}`);
 +}
 +
@@ -110,9 +125,23 @@ new file mode 100644
 +  'state?.settings||{}',
 +  "typeof dialog.showModal==='function'",
 +  "dialog.setAttribute('open','')",
-+  "$('#settings').onclick=openSettings"
++  "$('#settings').onclick=openSettings",
++  "apiKey:$('#key').value",
++  "if(r?.needsSetup)openSettings()"
 +]) {
 +  if (!app.includes(token)) throw new Error(`Missing settings interaction contract: ${token}`);
++}
++
++if (app.includes("geminiKey:$('#key').value")) {
++  throw new Error('Settings still send the API key under the wrong property name.');
++}
++
++for (const token of [
++  "ipcMain.handle('aegis:start-all-autopilots'",
++  'if (!geminiKeyMetadata().configured)',
++  'needsSetup: true'
++]) {
++  if (!main.includes(token)) throw new Error(`Missing global API-key guard: ${token}`);
 +}
 +
 +for (const token of [
@@ -125,4 +154,4 @@ new file mode 100644
 +  if (!css.includes(token)) throw new Error(`Missing sidebar settings layout contract: ${token}`);
 +}
 +
-+console.log('sidebar settings dialog smoke test: OK');
++console.log('sidebar settings and Gemini key flow smoke test: OK');
