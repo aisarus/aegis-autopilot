@@ -218,8 +218,8 @@ try {
     Invoke-Native -FilePath 'node' -Arguments @('--check', 'main.js')
     Invoke-Native -FilePath 'node' -Arguments @('--check', 'chatgpt-preload.js')
 
-    Write-Host '[Aegis] Running tests...'
-    Invoke-Native -FilePath 'npm.cmd' -Arguments @('test')
+    Write-Host '[Aegis] Running complete smoke suite...'
+    Invoke-Native -FilePath 'node' -Arguments @('scripts/run-smoke-suite.js')
 
     Stop-ExistingAegis
     Write-Host "[Aegis] Starting verified runtime $runtimeVersion from $RuntimeDir..."
