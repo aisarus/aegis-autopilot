@@ -5,16 +5,17 @@ module.exports = {
   probes(document) {
     let score = 0;
     if (document.querySelector('#prompt-textarea')) score += 50;
+    if (document.querySelector('textarea[aria-label*="ChatGPT"], textarea[data-virtualkeyboard]')) score += 35;
     if (document.querySelector('[data-message-author-role]')) score += 30;
-    if (document.querySelector('button[data-testid="send-button"],button[data-testid="composer-submit-button"]')) score += 20;
+    if (document.querySelector('button[data-testid="send-button"],button[data-testid="composer-submit-button"],button#composer-submit-button')) score += 20;
     return score;
   },
   selectors: {
-    composer: ['#prompt-textarea','main [contenteditable="true"][data-lexical-editor="true"]','form [contenteditable="true"]','textarea[data-id="root"]','form textarea'],
+    composer: ['#prompt-textarea','textarea[aria-label*="ChatGPT"]','textarea[data-virtualkeyboard]','main [contenteditable="true"][data-lexical-editor="true"]','form [contenteditable="true"]','textarea[data-id="root"]','form textarea'],
     stopButton: ['button[data-testid="stop-button"]','button[data-testid="composer-stop-button"]'],
-    sendButton: ['button[data-testid="send-button"]','button[data-testid="composer-submit-button"]'],
+    sendButton: ['button[data-testid="send-button"]','button[data-testid="composer-submit-button"]','button#composer-submit-button'],
     assistantMessages: ['[data-message-author-role="assistant"]'],
-    messageTurns: ['article[data-testid^="conversation-turn-"]','main article'],
+    messageTurns: ['article[data-testid^="conversation-turn-"]','main [data-testid*="conversation-turn"]','main article'],
     roleNodes: ['main [data-message-author-role]'],
     streaming: ['[aria-busy="true"]','[data-streaming="true"]','.result-streaming','[class*="streaming"]']
   }
