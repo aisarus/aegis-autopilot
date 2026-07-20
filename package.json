@@ -6,6 +6,9 @@
   "private": true,
   "scripts": {
     "patch:current": "node scripts/apply-current-patch.js",
+    "doctor": "node scripts/doctor.js",
+    "debug:bundle": "node scripts/create-debug-bundle.js",
+    "verify": "npm run patch:current && npm run doctor && npm test",
     "prestart": "npm run patch:current && node scripts/stop-old-aegis.js",
     "start": "electron .",
     "predev": "npm run patch:current",
