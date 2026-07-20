@@ -51,6 +51,17 @@ diff --git a/package.json b/package.json
      "dist:win": "electron-builder --win nsis",
      "pack:win": "electron-builder --win dir",
      "dev:once": "electron ."
+diff --git a/tests/message-parser-resilience-smoke.js b/tests/message-parser-resilience-smoke.js
+--- a/tests/message-parser-resilience-smoke.js
++++ b/tests/message-parser-resilience-smoke.js
+@@ -18,7 +18,7 @@ const preloadContracts = [
+   '[data-message-id]',
+   'const scopedSelector = /^main(?:\\s|$)/i.test(selector.trim())',
+-  "if (assistantContent) return 'assistant'",
++  "if (assistantContent && !userContent) return 'assistant'",
+   'messageCandidateCount: lastMessageScan.candidateCount',
+   'assistantMessageCount: lastMessageScan.assistantCount',
+   'userMessageCount: lastMessageScan.userCount'
 diff --git a/tests/message-role-confidence-smoke.js b/tests/message-role-confidence-smoke.js
 new file mode 100644
 --- /dev/null
