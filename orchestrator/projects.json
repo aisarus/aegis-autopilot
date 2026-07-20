@@ -1,0 +1,29 @@
+{
+  "version": 1,
+  "projects": [
+    {
+      "id": "lamdan",
+      "name": "Lamdan",
+      "repository": "aisarus/syllabus-to-os",
+      "defaultBranch": "main",
+      "statusDocuments": ["STATUS.md", "TASKS.md", "PLANS.md", "AGENTS.md"],
+      "nextTask": "S3-003 real cancellation propagation and late-result rejection"
+    },
+    {
+      "id": "edge",
+      "name": "Edge Research Cockpit",
+      "repository": "aisarus/edge-mobile-betting-app",
+      "defaultBranch": "main",
+      "statusDocuments": ["docs/PROJECT_STATE.md", "docs/ROADMAP.md", "README.md"],
+      "nextTask": "Security headers and CSP for frontend and API responses"
+    },
+    {
+      "id": "aegis",
+      "name": "Aegis GitHub Orchestrator",
+      "repository": "aisarus/aegis-autopilot",
+      "defaultBranch": "main",
+      "statusDocuments": ["ARCHITECTURE.md", "README.md", "docs/GITHUB_ORCHESTRATOR_V2.md"],
+      "nextTask": "Replace DOM orchestration with a tested two-way GitHub connector"
+    }
+  ]
+}
