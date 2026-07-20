@@ -1,0 +1,108 @@
+diff --git a/chatgpt-preload.js b/chatgpt-preload.js
+--- a/chatgpt-preload.js
++++ b/chatgpt-preload.js
+@@ -203,18 +203,28 @@ function messageHost(node) {
+ function explicitMessageRole(node) {
+   if (!node) return '';
+-  const roleCarrier = node.matches?.('[data-message-author-role], [data-author], [data-role]')
+-    ? node
+-    : node.querySelector?.('[data-message-author-role], [data-author], [data-role]');
+-  for (const value of [
+-    roleCarrier?.getAttribute?.('data-message-author-role'),
+-    roleCarrier?.getAttribute?.('data-author'),
+-    roleCarrier?.getAttribute?.('data-role')
+-  ]) {
+-    const role = cleanText(value, 40).toLocaleLowerCase();
+-    if (['assistant', 'chatgpt', 'bot', 'model'].includes(role)) return 'assistant';
+-    if (['user', 'human', 'you'].includes(role)) return 'user';
++  const roleSelector = '[data-message-author-role], [data-author], [data-role]';
++  const explicitRoleNodes = [
++    ...(node.matches?.(roleSelector) ? [node] : []),
++    ...node.querySelectorAll?.(roleSelector) || []
++  ];
++  const explicitRoles = new Set();
++  for (const roleNode of explicitRoleNodes) {
++    for (const value of [
++      roleNode.getAttribute?.('data-message-author-role'),
++      roleNode.getAttribute?.('data-author'),
++      roleNode.getAttribute?.('data-role')
++    ]) {
++      const role = cleanText(value, 40).toLocaleLowerCase();
++      if (['assistant', 'chatgpt', 'bot', 'model'].includes(role)) explicitRoles.add('assistant');
++      if (['user', 'human', 'you'].includes(role)) explicitRoles.add('user');
++    }
+   }
++  if (explicitRoles.size > 1) return '';
++  if (explicitRoles.size === 1) return [...explicitRoles][0];
++  const roleCarrier = explicitRoleNodes[0] || null;
+ 
+   const signature = cleanText([
+     node.getAttribute?.('data-testid'),
+diff --git a/package-lock.json b/package-lock.json
+--- a/package-lock.json
++++ b/package-lock.json
+@@ -1,12 +1,12 @@
+ {
+   "name": "aegis-chatgpt-client",
+-  "version": "1.2.14",
++  "version": "1.2.15",
+   "lockfileVersion": 3,
+   "requires": true,
+   "packages": {
+     "": {
+       "name": "aegis-chatgpt-client",
+-      "version": "1.2.14",
++      "version": "1.2.15",
+       "dependencies": {
+         "@google/genai": "^2.12.0",
+         "mammoth": "1.8.0",
+diff --git a/package.json b/package.json
+--- a/package.json
++++ b/package.json
+@@ -1,13 +1,13 @@
+ {
+   "name": "aegis-chatgpt-client",
+-  "version": "1.2.14",
+-  "description": "Minimal three-project autopilot with confidence-gated message roles",
++  "version": "1.2.15",
++  "description": "Minimal three-project autopilot with conflict-safe explicit message roles",
+   "main": "main.js",
+   "private": true,
+   "scripts": {
+     "start": "electron .",
+     "dev": "electron .",
+-    "test": "node tests/multi-chat-smoke.js && node tests/autopilot-resilience-smoke.js && node tests/send-contract-smoke.js && node tests/composer-first-readiness-smoke.js && node tests/no-reload-loop-smoke.js && node tests/budget-guard-smoke.js && node tests/minimal-three-project-smoke.js && node tests/chat-identity-draft-smoke.js && node tests/send-transaction-smoke.js && node tests/own-draft-retry-smoke.js && node tests/watchdog-survival-smoke.js && node tests/quiet-heartbeat-log-smoke.js && node tests/response-gate-recovery-smoke.js && node tests/supervisor-processing-retry-smoke.js && node tests/gemini-incomplete-retry-smoke.js && node tests/review-busy-retry-smoke.js && node tests/message-parser-resilience-smoke.js && node tests/single-pass-message-scan-smoke.js && node tests/supervisor-conversation-binding-smoke.js && node tests/message-role-confidence-smoke.js",
++    "test": "node tests/multi-chat-smoke.js && node tests/autopilot-resilience-smoke.js && node tests/send-contract-smoke.js && node tests/composer-first-readiness-smoke.js && node tests/no-reload-loop-smoke.js && node tests/budget-guard-smoke.js && node tests/minimal-three-project-smoke.js && node tests/chat-identity-draft-smoke.js && node tests/send-transaction-smoke.js && node tests/own-draft-retry-smoke.js && node tests/watchdog-survival-smoke.js && node tests/quiet-heartbeat-log-smoke.js && node tests/response-gate-recovery-smoke.js && node tests/supervisor-processing-retry-smoke.js && node tests/gemini-incomplete-retry-smoke.js && node tests/review-busy-retry-smoke.js && node tests/message-parser-resilience-smoke.js && node tests/single-pass-message-scan-smoke.js && node tests/supervisor-conversation-binding-smoke.js && node tests/message-role-confidence-smoke.js && node tests/explicit-role-conflict-smoke.js",
+     "dist:win": "electron-builder --win nsis",
+     "pack:win": "electron-builder --win dir",
+     "dev:once": "electron ."
+diff --git a/tests/explicit-role-conflict-smoke.js b/tests/explicit-role-conflict-smoke.js
+new file mode 100644
+--- /dev/null
++++ b/tests/explicit-role-conflict-smoke.js
+@@ -0,0 +1,27 @@
++const fs = require('fs');
++
++const source = fs.readFileSync('chatgpt-preload.js', 'utf8');
++const start = source.indexOf('function explicitMessageRole(node)');
++const end = source.indexOf('function messageContentNode(', start);
++if (start < 0 || end < 0) throw new Error('Message role classifier was not found.');
++
++const classifier = source.slice(start, end);
++for (const token of [
++  'const explicitRoles = new Set()',
++  "explicitRoles.add('assistant')",
++  "explicitRoles.add('user')",
++  "if (explicitRoles.size > 1) return ''",
++  'if (explicitRoles.size === 1) return [...explicitRoles][0]'
++]) {
++  if (!classifier.includes(token)) throw new Error(`Missing explicit-role conflict contract: ${token}`);
++}
++
++const conflictAt = classifier.indexOf("if (explicitRoles.size > 1) return ''");
++const signatureAt = classifier.indexOf('const signature = cleanText(');
++if (conflictAt < 0 || signatureAt < 0 || conflictAt > signatureAt) {
++  throw new Error('Conflicting explicit roles are checked too late.');
++}
++
++console.log('explicit message role conflict smoke test: OK');
