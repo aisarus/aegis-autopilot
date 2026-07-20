@@ -5,6 +5,7 @@ $RepoDir = Split-Path -Parent $PSScriptRoot
 $RuntimeDir = Join-Path $env:LOCALAPPDATA 'AegisAutopilot\dev-runtime'
 $PatchManifest = Join-Path $RepoDir 'patches\runtime-manifest.txt'
 $ExpectedVersionFile = Join-Path $RepoDir 'patches\runtime-version.txt'
+$NormalizedPatchDir = Join-Path $env:TEMP 'AegisAutopilot\normalized-patches'
 
 function Invoke-Native {
   param(
@@ -29,6 +30,70 @@ function Get-NativeOutput {
     throw "$FilePath $($Arguments -join ' ') exited with code $LASTEXITCODE."
   }
   return ($output | Out-String).Trim()
+}
+
+function New-NormalizedPatch {
+  param(
+    [Parameter(Mandatory = $true)][string]$SourcePath,
+    [Parameter(Mandatory = $true)][string]$PatchName
+  )
+
+  $raw = [System.IO.File]::ReadAllText($SourcePath)
+  $raw = $raw.Replace("`r`n", "`n").Replace("`r", "`n")
+  $lines = [System.Text.RegularExpressions.Regex]::Split($raw, "`n")
+  $normalized = New-Object System.Collections.Generic.List[string]
+  $headerPattern = '^@@ -(?<oldStart>\d+)(?:,(?<oldCount>\d+))? \+(?<newStart>\d+)(?:,(?<newCount>\d+))? @@(?<suffix>.*)$'
+
+  $index = 0
+  while ($index -lt $lines.Length) {
+    $line = $lines[$index]
+    $match = [System.Text.RegularExpressions.Regex]::Match($line, $headerPattern)
+    if (-not $match.Success) {
+      $normalized.Add($line)
+      $index += 1
+      continue
+    }
+
+    $oldCount = 0
+    $newCount = 0
+    $cursor = $index + 1
+    while ($cursor -lt $lines.Length) {
+      $candidate = $lines[$cursor]
+      if ($candidate.StartsWith('diff --git ') -or $candidate.StartsWith('@@ ')) { break }
+      if ($candidate.Length -eq 0) { break }
+
+      $prefix = $candidate[0]
+      if ($prefix -eq '\') {
+        $cursor += 1
+        continue
+      }
+      if ($prefix -ne ' ' -and $prefix -ne '+' -and $prefix -ne '-') { break }
+      if ($prefix -eq ' ' -or $prefix -eq '-') { $oldCount += 1 }
+      if ($prefix -eq ' ' -or $prefix -eq '+') { $newCount += 1 }
+      $cursor += 1
+    }
+
+    if ($cursor -eq $index + 1) {
+      throw "Patch contains an empty hunk: $PatchName at source line $($index + 1)."
+    }
+
+    $oldStart = $match.Groups['oldStart'].Value
+    $newStart = $match.Groups['newStart'].Value
+    $suffix = $match.Groups['suffix'].Value
+    $normalized.Add("@@ -$oldStart,$oldCount +$newStart,$newCount @@$suffix")
+    for ($copy = $index + 1; $copy -lt $cursor; $copy += 1) {
+      $normalized.Add($lines[$copy])
+    }
+    $index = $cursor
+  }
+
+  if (-not (Test-Path $NormalizedPatchDir)) {
+    New-Item -ItemType Directory -Path $NormalizedPatchDir -Force | Out-Null
+  }
+  $targetPath = Join-Path $NormalizedPatchDir $PatchName
+  $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+  [System.IO.File]::WriteAllText($targetPath, (($normalized -join "`n").TrimEnd("`n") + "`n"), $utf8NoBom)
+  return $targetPath
 }
 
 function Rebuild-Runtime {
@@ -65,6 +130,10 @@ function Prepare-Runtime {
 function Apply-RuntimePatches {
   if (-not (Test-Path $PatchManifest)) { return }
 
+  if (Test-Path $NormalizedPatchDir) {
+    Remove-Item -LiteralPath $NormalizedPatchDir -Recurse -Force
+  }
+
   $patchNames = Get-Content -LiteralPath $PatchManifest |
     ForEach-Object { $_.Trim() } |
     Where-Object { $_ -and -not $_.StartsWith('#') }
@@ -75,16 +144,17 @@ function Apply-RuntimePatches {
       throw "Runtime patch is listed but missing: $patchName"
     }
 
-    Write-Host "[Aegis] Preflighting patch $patchName..."
+    $normalizedPatchPath = New-NormalizedPatch -SourcePath $patchPath -PatchName $patchName
+    Write-Host "[Aegis] Preflighting normalized patch $patchName..."
     try {
-      Invoke-Native -FilePath 'git' -Arguments @('-C', $RuntimeDir, 'apply', '--recount', '--check', $patchPath)
+      Invoke-Native -FilePath 'git' -Arguments @('-C', $RuntimeDir, 'apply', '--check', $normalizedPatchPath)
     } catch {
       throw "Patch preflight failed: $patchName. $($_.Exception.Message)"
     }
 
-    Write-Host "[Aegis] Applying patch $patchName..."
+    Write-Host "[Aegis] Applying normalized patch $patchName..."
     try {
-      Invoke-Native -FilePath 'git' -Arguments @('-C', $RuntimeDir, 'apply', '--recount', $patchPath)
+      Invoke-Native -FilePath 'git' -Arguments @('-C', $RuntimeDir, 'apply', $normalizedPatchPath)
     } catch {
       throw "Patch apply failed: $patchName. $($_.Exception.Message)"
     }
