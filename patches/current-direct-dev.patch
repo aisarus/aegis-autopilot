@@ -1,0 +1,205 @@
+diff --git a/main.js b/main.js
+--- a/main.js
++++ b/main.js
+@@ -8,6 +8,7 @@ const path = require('path');
+ const { GoogleGenAI } = require('@google/genai');
+ 
+ const APP_TITLE = 'Aegis';
+ const APP_ID = 'com.aegis.client';
++const BUILD_ID = String(process.env.AEGIS_BUILD_SHA || 'development').trim();
+ let chatPanelVisible = true;
+ 
+ const PANEL_WIDTH = 360;
+@@ -190,6 +191,7 @@ function publicState() {
+   view.supervisor.apiKeySource = geminiKeyMetadata().source;
+   view.supervisor.busy = supervisorBusy;
+   view.dispatchBusy = dispatchBusy;
++  view.buildId = BUILD_ID;
+   return view;
+ }
+ 
+@@ -1455,6 +1457,39 @@ function registerIpc() {
+     else writeLog('info', 'Chat command completed', `${result?.commandId || ''}: ${result?.method || 'ok'}`);
+     pending.resolve(result);
+   });
++
++  ipcMain.handle('aegis-chat:native-editor', async (event, input = {}) => {
++    if (!chatView || event.sender !== chatView.webContents || event.sender.isDestroyed()) {
++      return { ok: false, error: 'Встроенный ChatGPT недоступен для нативного ввода.' };
++    }
++    const action = compact(input?.action, 40);
++    try {
++      chatView.webContents.focus();
++      if (action === 'insert-text') {
++        const text = String(input?.text || '');
++        if (!text) return { ok: false, error: 'Нативный ввод получил пустой текст.' };
++        if (typeof chatView.webContents.insertText !== 'function') {
++          return { ok: false, error: 'Electron webContents.insertText недоступен.' };
++        }
++        await Promise.resolve(chatView.webContents.insertText(text));
++        return { ok: true, action, chars: text.length };
++      }
++      if (action === 'press-enter') {
++        chatView.webContents.sendInputEvent({ type: 'keyDown', keyCode: 'Enter' });
++        chatView.webContents.sendInputEvent({ type: 'keyUp', keyCode: 'Enter' });
++        return { ok: true, action };
++      }
++      return { ok: false, error: `Неизвестное нативное действие редактора: ${action || 'empty'}` };
++    } catch (error) {
++      writeLog('warn', 'Native ChatGPT editor action failed', `${action}: ${error?.message || error}`);
++      return { ok: false, error: compact(error?.message || error, 500) };
++    }
++  });
+ 
+   ipcMain.handle('aegis:get-state', () => publicState());
+   ipcMain.handle('aegis:pin-current-chat', async () => {
+     try {
+ diff --git a/chatgpt-preload.js b/chatgpt-preload.js
+--- a/chatgpt-preload.js
++++ b/chatgpt-preload.js
+@@ -143,8 +143,8 @@ function composerElement() {
+ 
+ function composerValue(element = composerElement()) {
+   if (!element) return '';
+-  if ('value' in element) return cleanText(element.value, 4000);
+-  return cleanText(element.innerText || element.textContent, 4000);
++  if ('value' in element) return cleanMessageText(element.value, 24000);
++  return cleanMessageText(element.innerText || element.textContent, 24000);
+ }
+ 
+ function buttonMatches(button, patterns) {
+@@ -180,8 +180,8 @@ function systemBlockDetected() {
+ }
+ 
+ function conversationMessages() {
+-  let turns = adapterRegistry.queryAll(document, activeAdapter().selectors.messageTurns).filter(isVisible);
+-  if (!turns.length) turns = adapterRegistry.queryAll(document, activeAdapter().selectors.roleNodes).map((node) => node.closest('article') || node).filter(isVisible);
++  let turns = adapterRegistry.queryAll(document, activeAdapter().selectors.messageTurns).filter((node) => node?.isConnected);
++  if (!turns.length) turns = adapterRegistry.queryAll(document, activeAdapter().selectors.roleNodes).map((node) => node.closest('article, [data-testid*="conversation-turn"], [data-message-id]') || node).filter((node) => node?.isConnected);
+   const messages = [];
+   for (const turn of turns.slice(-10)) {
+     const roleNode = turn.matches('[data-message-author-role]') ? turn : turn.querySelector('[data-message-author-role]');
+@@ -216,7 +216,7 @@ function conversationMessages() {
+ }
+ 
+ function fallbackAssistantMessage() {
+-  const explicit = [...document.querySelectorAll('main [data-message-author-role="assistant"]')].filter(isVisible).at(-1);
++  const explicit = [...document.querySelectorAll('main [data-message-author-role="assistant"]')].at(-1);
+   if (explicit) {
+     const host = explicit.closest('article, [data-testid*="conversation-turn"]') || explicit;
+     const text = cleanMessageText((host.querySelector('.markdown') || explicit).innerText || explicit.textContent);
+@@ -225,7 +225,6 @@ function fallbackAssistantMessage() {
+   // assistant turns. Walk upward from the last such toolbar instead of relying
+   // on one version-specific class name.
+   const actionButtons = [...document.querySelectorAll('main button')].filter((button) => {
+-    if (!isVisible(button)) return false;
+     const label = cleanText(`${button.getAttribute('aria-label') || ''} ${button.getAttribute('data-testid') || ''}`, 180).toLowerCase();
+     return /copy|thumb|feedback|good response|bad response|retry|regenerate|копир|оцен|повтор/.test(label);
+   });
+@@ -378,6 +377,17 @@ function scheduleSnapshot() {
+   scheduled = setTimeout(() => emitSnapshot(), 240);
+ }
+ 
++async function nativeEditor(action, payload = {}) {
++  try {
++    const result = await ipcRenderer.invoke('aegis-chat:native-editor', { action, ...payload });
++    return result && typeof result === 'object' ? result : { ok: false, error: 'Пустой ответ нативного редактора.' };
++  } catch (error) {
++    return { ok: false, error: cleanText(error?.message || error, 500) };
++  }
++}
++
+ function dispatchInputLikeUser(element, text, inputType = 'insertText') {
+   try {
+     element.dispatchEvent(new InputEvent('beforeinput', { bubbles: true, composed: true, cancelable: true, inputType, data: text }));
+@@ -412,6 +422,18 @@ async function setComposerText(element, text) {
+   clearComposer(element);
+   element.focus();
+ 
++  const nativeResult = await nativeEditor('insert-text', { text });
++  if (nativeResult?.ok) {
++    await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
++    const nativeValue = composerValue(element);
++    if (cleanMessageText(nativeValue) === cleanMessageText(text)) return nativeValue;
++    clearComposer(element);
++    element.focus();
++  }
++
+   if ('value' in element) {
+     const prototype = element instanceof HTMLTextAreaElement ? HTMLTextAreaElement.prototype : HTMLInputElement.prototype;
+     const setter = Object.getOwnPropertyDescriptor(prototype, 'value')?.set;
+@@ -443,7 +465,7 @@ function explicitUserMessages() {
+   const seen = new Set();
+   const messages = [];
+-  const nodes = [...document.querySelectorAll('main [data-message-author-role="user"]')].filter(isVisible);
++  const nodes = [...document.querySelectorAll('main [data-message-author-role="user"]')];
+   for (const roleNode of nodes) {
+     const host = roleNode.closest('article, [data-testid*="conversation-turn"]') || roleNode;
+     const contentNode = host.querySelector('[data-message-author-role="user"] .whitespace-pre-wrap, [data-message-author-role="user"] [class*="whitespace-pre-wrap"], [data-message-author-role="user"]') || roleNode;
+@@ -485,12 +507,17 @@ async function submitComposer(element) {
+   }, 2500);
+   if (button) {
+-    button.focus();
+-    button.click();
+-    return 'button';
++    element.focus();
++    const nativeResult = await nativeEditor('press-enter');
++    if (nativeResult?.ok) return 'native-enter';
++    button.focus();
++    button.click();
++    return 'button-fallback';
+   }
+ 
+   const form = element.closest('form');
+@@ -499,6 +526,9 @@ async function submitComposer(element) {
+     try { form.requestSubmit(); return 'requestSubmit'; } catch {}
+   }
+ 
++  const nativeResult = await nativeEditor('press-enter');
++  if (nativeResult?.ok) return 'native-enter-no-button';
++
+   pressEnterToSend(element);
+   return 'enter';
+ }
+@@ -540,8 +570,8 @@ async function executeCommand(type, payload) {
+     if (systemBlockDetected()) throw new Error('ChatGPT показывает лимит или блокировку.');
+     const composer = composerElement();
+     if (!composer) throw new Error('Поле ввода ChatGPT не найдено.');
+-    const existingDraft = cleanText(composerValue(composer));
+-    const intendedText = cleanText(text);
++    const existingDraft = cleanMessageText(composerValue(composer));
++    const intendedText = cleanMessageText(text);
+     if (existingDraft && existingDraft !== intendedText) throw new Error('В поле ChatGPT уже есть другой черновик.');
+     const beforeUser = userMessageEvidence(intendedText);
+     if (existingDraft !== intendedText) await setComposerText(composer, text);
+-    const filled = await waitFor(() => cleanText(composerValue(composer)) === intendedText, 5000);
++    const filled = await waitFor(() => cleanMessageText(composerValue(composer)) === intendedText, 5000);
+     if (!filled) throw new Error('ChatGPT не принял текст в поле ввода.');
+     if (targetUrl && !sameUrl(location.href, targetUrl)) throw new Error('ChatGPT переключил разговор во время заполнения поля. Отправка отменена.');
+ 
+@@ -550,8 +580,11 @@ async function executeCommand(type, payload) {
+       if (targetUrl && !sameUrl(location.href, targetUrl)) return null;
+       const evidence = userMessageEvidence(intendedText);
+       const newUserMessage = evidence.fingerprint !== beforeUser.fingerprint && evidence.intendedMatch;
+-      return newUserMessage ? { composerCleared: !composerValue(composer), newUserMessage, evidence } : null;
++      const composerCleared = !cleanMessageText(composerValue(composer));
++      const generationStarted = generatingNow();
++      return (newUserMessage || composerCleared || generationStarted)
++        ? { composerCleared, generationStarted, newUserMessage, evidence }
++        : null;
+     };
+     let accepted = await waitFor(verifyAccepted, 9000);
+ 
+@@ -562,7 +595,10 @@ async function executeCommand(type, payload) {
+       // Never press Enter after ChatGPT has already consumed the composer: the
+       // user turn may simply be late to render, and retrying here can duplicate it.
+       if (remainingDraft === intendedText && !generatingNow() && (!targetUrl || sameUrl(location.href, targetUrl))) {
+-        pressEnterToSend(composer);
+-        method = `${method}+enter`;
++        composer.focus();
++        const nativeRetry = await nativeEditor('press-enter');
++        if (!nativeRetry?.ok) pressEnterToSend(composer);
++        method = `${method}+${nativeRetry?.ok ? 'native-enter' : 'enter'}`;
+       }
+       accepted = await waitFor(verifyAccepted, 9000);
+     }
