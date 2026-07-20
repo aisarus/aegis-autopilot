@@ -20,6 +20,10 @@ if errorlevel 1 goto :error
 git pull --ff-only origin testing
 if errorlevel 1 goto :error
 
+echo [Aegis] Verifying isolated runtime registration...
+powershell -NoProfile -ExecutionPolicy Bypass -Command "$repo=(Resolve-Path '%~dp0').Path.TrimEnd('\'); $runtime=Join-Path $env:LOCALAPPDATA 'AegisAutopilot\dev-runtime'; $gitMarker=Join-Path $runtime '.git'; if (-not (Test-Path -LiteralPath $gitMarker)) { Write-Host '[Aegis] Repairing orphaned runtime...'; & git -C $repo worktree prune | Out-Null; if (Test-Path -LiteralPath $runtime) { Remove-Item -LiteralPath $runtime -Recurse -Force }; & git -C $repo worktree add --detach $runtime HEAD; if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE } }"
+if errorlevel 1 goto :error
+
 call "%~dp0update-and-run.cmd"
 exit /b %errorlevel%
 
