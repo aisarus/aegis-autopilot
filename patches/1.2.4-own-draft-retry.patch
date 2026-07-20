@@ -1,7 +1,7 @@
 diff --git a/main.js b/main.js
 --- a/main.js
 +++ b/main.js
-@@ -559,6 +559,15 @@ async function dispatchNext({ chatId = state.activeChatId, manual = false } = {})
+@@ -559,8 +559,16 @@ async function dispatchNext({ chatId = state.activeChatId, manual = false } = {})
    }
  }
  
@@ -18,7 +18,7 @@ diff --git a/main.js b/main.js
 +  if (draftOwner) return draftOwner;
    if (candidates.length === 1) return candidates[0];
    const lastIndex = state.chats.findIndex((chat) => chat.id === lastDispatchedChatId);
-@@ -668,10 +677,25 @@ async function runAutopilotScheduler() {
+@@ -668,9 +677,25 @@ async function runAutopilotScheduler() {
      requestAutopilotScheduler(900);
      return;
    }
