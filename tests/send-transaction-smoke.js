@@ -2,7 +2,11 @@ const fs = require('fs');
 const assert = require('assert');
 const main = fs.readFileSync('main.js', 'utf8');
 const preload = fs.readFileSync('chatgpt-preload.js', 'utf8');
-assert(main.includes("{ text: item.text, targetUrl: chat.url }"), 'dispatcher must bind send to the target conversation');
+
+const sendCall = main.match(/sendChatCommand\(\s*['"]send['"]\s*,\s*\{([\s\S]*?)\}\s*,\s*22000\s*\)/);
+assert(sendCall, 'dispatcher must issue a verified send command');
+assert(/\btext\s*:\s*item\.text\b/.test(sendCall[1]), 'dispatcher must send the queued item text');
+assert(/\btargetUrl\s*:\s*chat\.url\b/.test(sendCall[1]), 'dispatcher must bind send to the target conversation');
 assert(preload.includes("targetUrl && !sameUrl(location.href, targetUrl)"), 'send must reject cross-conversation races');
 assert(preload.includes('function explicitUserMessages()'), 'send verification needs a direct user-turn scanner');
 assert(preload.includes('evidence.fingerprint !== beforeUser.fingerprint && evidence.intendedMatch'), 'send must verify a new exact user turn');
