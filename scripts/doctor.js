@@ -25,6 +25,7 @@ const lockPath = requireFile('package-lock.json');
   'renderer/index.html',
   'renderer/app.js',
   'scripts/prepare-testing-source.js',
+  'scripts/prepare-testing-source-atomic.js',
   'scripts/create-debug-bundle.js',
   'scripts/stop-old-aegis.js',
   'tests/production-workflow-smoke.js',
@@ -41,6 +42,7 @@ if (fs.existsSync(packagePath) && fs.existsSync(lockPath)) {
   const lockVersion = lock.packages?.['']?.version || lock.version;
   if (pkg.version !== lockVersion) failures.push(`package.json version ${pkg.version} does not match package-lock ${lockVersion}`);
   if (pkg.scripts?.['patch:current'] || pkg.scripts?.['patch:check']) failures.push('legacy patch-on-start scripts are still registered');
+  if (pkg.scripts?.prepare !== 'node scripts/prepare-testing-source-atomic.js') failures.push('prepare must use the transactional source wrapper');
   if (!String(pkg.scripts?.verify || '').startsWith('npm run prepare')) failures.push('verify must start with deterministic source preparation');
   notes.push(`Aegis ${pkg.version}`);
 }
@@ -55,6 +57,7 @@ for (const file of [
   'chatgpt-preload.js',
   'renderer/app.js',
   'scripts/prepare-testing-source.js',
+  'scripts/prepare-testing-source-atomic.js',
   'scripts/create-debug-bundle.js',
   'scripts/stop-old-aegis.js',
   'tests/production-workflow-smoke.js'
