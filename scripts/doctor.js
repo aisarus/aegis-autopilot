@@ -41,9 +41,10 @@ if (fs.existsSync(packagePath) && fs.existsSync(lockPath)) {
   const lock = JSON.parse(fs.readFileSync(lockPath, 'utf8'));
   const lockVersion = lock.packages?.['']?.version || lock.version;
   if (pkg.version !== lockVersion) failures.push(`package.json version ${pkg.version} does not match package-lock ${lockVersion}`);
+  if (pkg.scripts?.prepare) failures.push('npm lifecycle script "prepare" must stay unused');
   if (pkg.scripts?.['patch:current'] || pkg.scripts?.['patch:check']) failures.push('legacy patch-on-start scripts are still registered');
-  if (pkg.scripts?.prepare !== 'node scripts/prepare-testing-source-atomic.js') failures.push('prepare must use the transactional source wrapper');
-  if (!String(pkg.scripts?.verify || '').startsWith('npm run prepare')) failures.push('verify must start with deterministic source preparation');
+  if (pkg.scripts?.['source:prepare'] !== 'node scripts/prepare-testing-source-atomic.js') failures.push('source:prepare must use the transactional source wrapper');
+  if (!String(pkg.scripts?.verify || '').startsWith('npm run source:prepare')) failures.push('verify must start with explicit transactional source preparation');
   notes.push(`Aegis ${pkg.version}`);
 }
 
