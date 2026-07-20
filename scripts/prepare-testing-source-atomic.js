@@ -12,7 +12,10 @@ const sourceFiles = [
   'renderer/index.html',
   'renderer/app.js'
 ];
-const helperFiles = ['scripts/prepare-testing-source.js'];
+const helperFiles = [
+  'scripts/prepare-testing-source.js',
+  'scripts/prepare-autopilot-response.js'
+];
 
 function copyIntoTemp(relativePath) {
   const source = path.join(repoDir, relativePath);
@@ -39,19 +42,28 @@ function fail(label, result) {
   process.exitCode = result?.status || 1;
 }
 
+function runHelper(relativePath, label) {
+  const first = run(process.execPath, [relativePath]);
+  if (first.status !== 0) {
+    fail(`${label} failed; transaction aborted before touching the checkout`, first);
+    return null;
+  }
+  const second = run(process.execPath, [relativePath]);
+  if (second.status !== 0) {
+    fail(`${label} idempotence check failed; checkout was not modified`, second);
+    return null;
+  }
+  return first;
+}
+
 try {
   [...sourceFiles, ...helperFiles].forEach(copyIntoTemp);
   normalizeKnownSourceFormatting();
 
-  const prepare = run(process.execPath, ['scripts/prepare-testing-source.js']);
-  if (prepare.status !== 0) {
-    fail('transaction aborted before touching the checkout', prepare);
-  } else {
-    const secondPass = run(process.execPath, ['scripts/prepare-testing-source.js']);
-    if (secondPass.status !== 0) {
-      fail('idempotence check failed; checkout was not modified', secondPass);
-    }
-  }
+  const basePrepare = runHelper('scripts/prepare-testing-source.js', 'base source preparation');
+  const responsePrepare = process.exitCode
+    ? null
+    : runHelper('scripts/prepare-autopilot-response.js', 'autopilot response preparation');
 
   if (!process.exitCode) {
     for (const relativePath of ['main.js', 'chatgpt-preload.js', 'preload.js', 'renderer/app.js']) {
@@ -69,8 +81,10 @@ try {
       const destination = path.join(repoDir, relativePath);
       fs.copyFileSync(prepared, destination);
     }
-    const output = [prepare.stdout, prepare.stderr].filter(Boolean).join('\n').trim();
-    if (output) console.log(output);
+    for (const result of [basePrepare, responsePrepare]) {
+      const output = [result?.stdout, result?.stderr].filter(Boolean).join('\n').trim();
+      if (output) console.log(output);
+    }
     console.log('[Aegis prepare] transaction committed');
   }
 } finally {
