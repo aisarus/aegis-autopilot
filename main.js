@@ -565,9 +565,17 @@ async function dispatchNext({ chatId = state.activeChatId, manual = false } = {}
   }
 }
 
+function browserDraftMatchesQueueItem(chat, item = chat ? nextQueueItem(chat.id) : null) {
+  const draft = compact(state.browser.composerText, 2000);
+  if (!draft || !chat || !item) return false;
+  return sameChatUrl(state.browser.url, chat.url) && draft === compact(item.text, 2000);
+}
+
 function queuedChat(preferredChatId = state.activeChatId) {
   const candidates = state.chats.filter((chat) => !chat.queuePaused && nextQueueItem(chat.id));
   if (!candidates.length) return null;
+  const draftOwner = candidates.find((chat) => browserDraftMatchesQueueItem(chat));
+  if (draftOwner) return draftOwner;
   if (candidates.length === 1) return candidates[0];
   const lastIndex = state.chats.findIndex((chat) => chat.id === lastDispatchedChatId);
   if (lastIndex >= 0) {
@@ -668,9 +676,25 @@ async function runAutopilotScheduler() {
     return;
   }
   if (state.settings.protectDraft && compact(state.browser.composerText, 100)) {
+    const draftOwner = state.chats.find((candidate) => !candidate.queuePaused && browserDraftMatchesQueueItem(candidate));
+    if (draftOwner) {
+      autopilotSchedulerBusy = true;
+      draftOwner.autopilotState = 'retrying-send';
+      sendState();
+      try {
+        await dispatchNext({ chatId: draftOwner.id });
+      } finally {
+        autopilotSchedulerBusy = false;
+        sendState();
+        if (autopilotScanQueue.length) requestAutopilotScheduler(120);
+        else requestDispatch();
+      }
+      return;
+    }
     const waiting = chatById(autopilotScanQueue[readyIndex].chatId);
     if (waiting) waiting.autopilotState = 'waiting-draft';
     sendState();
+    requestAutopilotScheduler(3000);
     return;
   }
   const [entry] = autopilotScanQueue.splice(readyIndex, 1);
@@ -733,7 +757,8 @@ function requestDispatch() {
   const chat = queuedChat();
   if (!chat || !state.settings.autoDispatch || dispatchBusy || responseGate || dispatchTimer) return;
   if (!state.browser.signedIn || state.browser.generating || state.browser.limitDetected) return;
-  if (state.settings.protectDraft && compact(state.browser.composerText, 100)) return;
+  const item = nextQueueItem(chat.id);
+  if (state.settings.protectDraft && compact(state.browser.composerText, 100) && !browserDraftMatchesQueueItem(chat, item)) return;
   dispatchTimer = setTimeout(() => {
     dispatchTimer = null;
     dispatchNext({ chatId: chat.id }).catch(() => {});
