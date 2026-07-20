@@ -4,6 +4,25 @@ on:
   push:
     branches: [main]
   pull_request:
+    paths:
+      - 'main.js'
+      - 'preload.js'
+      - 'chatgpt-preload.js'
+      - 'adapters/**'
+      - 'renderer/**'
+      - 'patches/**'
+      - 'scripts/update-and-run.ps1'
+      - 'update-and-run.cmd'
+      - 'tests/multi-chat-smoke.js'
+      - 'tests/autopilot-resilience-smoke.js'
+      - 'tests/send-contract-smoke.js'
+      - 'tests/composer-first-readiness-smoke.js'
+      - 'tests/no-reload-loop-smoke.js'
+      - 'tests/budget-guard-smoke.js'
+      - 'tests/minimal-three-project-smoke.js'
+      - 'tests/chat-identity-draft-smoke.js'
+      - 'tests/send-transaction-smoke.js'
+      - 'tests/own-draft-retry-smoke.js'
   workflow_dispatch:
 
 permissions:
