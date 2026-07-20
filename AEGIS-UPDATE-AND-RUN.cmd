@@ -30,42 +30,34 @@ if not exist ".git" goto :not_repo
 
 echo.
 echo ========================================
-echo   AEGIS - PATCH, VERIFY AND RUN
+echo   AEGIS - UPDATE, VERIFY AND RUN
 echo ========================================
-echo [1/7] Downloading the latest testing code...
+echo [1/6] Downloading the latest testing code...
 git fetch origin testing
 if errorlevel 1 goto :error
 
-echo [2/7] Synchronizing this folder with origin/testing...
+echo [2/6] Synchronizing this folder with origin/testing...
 git checkout -B testing origin/testing
 if errorlevel 1 goto :error
 git reset --hard origin/testing
 if errorlevel 1 goto :error
 
-for /f %%I in ('git rev-parse --short HEAD') do set "AEGIS_BUILD_SHA=%%I+direct-patch"
+for /f %%I in ('git rev-parse --short=12 HEAD') do set "AEGIS_BUILD_SHA=%%I+testing"
 echo [Aegis] Exact build: %AEGIS_BUILD_SHA%
 
-echo [3/7] Updating dependencies...
-call npm.cmd install
+echo [3/6] Installing the locked dependencies...
+call npm.cmd ci
 if errorlevel 1 goto :error
 
-echo [4/7] Applying the current ChatGPT patch...
-call npm.cmd run patch:current
+echo [4/6] Preparing and verifying the source...
+call npm.cmd run verify
 if errorlevel 1 goto :error
 
-echo [5/7] Checking JavaScript syntax...
-node --check main.js
-if errorlevel 1 goto :error
-node --check chatgpt-preload.js
-if errorlevel 1 goto :error
-
-echo [6/7] Running smoke tests...
-call npm.cmd test
-if errorlevel 1 goto :error
-
-echo [7/7] Starting the patched source build...
+echo [5/6] Verification passed.
 echo [Aegis] Source folder: %REPO%
 echo [Aegis] Build: %AEGIS_BUILD_SHA%
+
+echo [6/6] Starting Aegis...
 echo.
 call npm.cmd start
 exit /b %ERRORLEVEL%
@@ -77,7 +69,7 @@ pause
 exit /b 1
 
 :missing_node
-echo [Aegis] Node.js LTS is not installed.
+echo [Aegis] Node.js 22 LTS is not installed.
 echo Install it once and run this button again.
 pause
 exit /b 1
@@ -89,7 +81,7 @@ exit /b 1
 
 :error
 echo.
-echo [Aegis] Patch, update or verification failed.
-echo [Aegis] The application was not reinstalled and your ChatGPT profile was not deleted.
+echo [Aegis] Update or verification failed. The application was not started.
+echo [Aegis] Run AEGIS-COLLECT-DEBUG.cmd and send the created file.
 pause
 exit /b 1
