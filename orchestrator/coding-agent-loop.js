@@ -120,6 +120,7 @@ class CodingAgentLoop {
       result = await this.worktreeService.writeFile(task, call.arguments.path, call.arguments.content);
       state.writes += 1;
       state.writtenBytes += bytes;
+      state.writtenPaths.add(String(result?.path || call.arguments.path).replace(/\\/g, '/'));
     } else if (call.name === 'git_status') {
       const lines = await this.worktreeService.status(task);
       state.inspectedStatus = true;
@@ -180,6 +181,7 @@ class CodingAgentLoop {
       toolCalls: 0,
       writes: 0,
       writtenBytes: 0,
+      writtenPaths: new Set(),
       inspectedStatus: false,
       inspectedDiff: false,
       verifications: [],
@@ -239,6 +241,7 @@ class CodingAgentLoop {
             summary: call.arguments.summary,
             tests: call.arguments.tests,
             risks: call.arguments.risks,
+            changedFiles: [...state.writtenPaths].sort(),
             usage: {
               turns: state.turn,
               toolCalls: state.toolCalls,
