@@ -1,0 +1,128 @@
+diff --git a/renderer/index.html b/renderer/index.html
+--- a/renderer/index.html
++++ b/renderer/index.html
+@@ -1,4 +1,4 @@
+-<!doctype html><html lang="ru"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Aegis</title><link rel="stylesheet" href="app.css"></head>
++<!doctype html><html lang="ru"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Aegis</title><link rel="stylesheet" href="app.css"><link rel="stylesheet" href="settings.css"></head>
+ <body>
+ <aside id="panel">
+   <header><div><b>Aegis Autopilot</b><small id="chat-status">ChatGPT загружается…</small></div><span id="api-dot">●</span></header>
+diff --git a/renderer/settings.css b/renderer/settings.css
+new file mode 100644
+--- /dev/null
++++ b/renderer/settings.css
+@@ -0,0 +1,26 @@
++/* WebContentsView is composited above the BrowserWindow page. Keep the native
++   dialog entirely inside the control sidebar so ChatGPT cannot cover it. */
++#settings-dialog {
++  position: fixed;
++  inset: 12px auto auto 12px;
++  margin: 0;
++  width: min(336px, calc(100vw - 24px));
++  max-width: calc(100vw - 24px);
++  max-height: calc(100vh - 24px);
++  overflow: auto;
++  z-index: 10000;
++}
++
++#settings-dialog::backdrop {
++  background: rgba(20, 18, 24, 0.28);
++}
++
++#settings-dialog[open] {
++  display: block;
++}
++
++@media (max-width: 1050px) {
++  #settings-dialog {
++    width: min(306px, calc(100vw - 24px));
++  }
++}
+diff --git a/renderer/app.js b/renderer/app.js
+--- a/renderer/app.js
++++ b/renderer/app.js
+@@ -13,6 +13,7 @@ function render(s){state=s;const b=s.browser||{},sup=s.supervisor||{},u=sup.usage
+ }
+ $('#start').onclick=()=>call('startAllAutopilots');$('#stop').onclick=()=>call('stopAllAutopilots');$('#check').onclick=()=>call('checkAllAutopilots');$('#pin').onclick=()=>call('pinCurrentChat');$('#logs').onclick=()=>call('openLogs');$('#copy').onclick=async()=>{await call('copyDiagnostics');toast('Диагностика скопирована')};
+ $('#chats').onclick=e=>{const t=e.target;if(t.dataset.open)call('openChat',t.dataset.open);if(t.dataset.remove)call('removeChat',t.dataset.remove)};$('#chats').onchange=e=>{if(e.target.dataset.toggle)call('toggleAutopilot',e.target.dataset.toggle)};
+-$('#settings').onclick=()=>{const s=state.settings||{};$('#model').value=s.geminiModel||'gemini-2.5-flash';$('#money').value=s.maxGeminiSpendUsdPerDay??0.5;$('#daily').value=s.maxGeminiCallsPerDay??250;$('#cooldown').value=s.supervisorCooldownSec??30;$('#key').value='';$('#settings-dialog').showModal()};
++function openSettings(){const s=state?.settings||{};$('#model').value=s.geminiModel||'gemini-2.5-flash';$('#money').value=s.maxGeminiSpendUsdPerDay??0.5;$('#daily').value=s.maxGeminiCallsPerDay??250;$('#cooldown').value=s.supervisorCooldownSec??30;$('#key').value='';const dialog=$('#settings-dialog');if(!dialog)return toast('Панель настроек не найдена');if(dialog.open)return;if(typeof dialog.showModal==='function')dialog.showModal();else dialog.setAttribute('open','')};$('#settings').onclick=openSettings;
+ $('#save').onclick=async e=>{e.preventDefault();const r=await call('updateSettings',{geminiKey:$('#key').value,geminiModel:$('#model').value,maxGeminiSpendUsdPerDay:Number($('#money').value),maxGeminiCallsPerDay:Number($('#daily').value),supervisorCooldownSec:Number($('#cooldown').value),supervisorEnabled:true,supervisorMode:'auto',chatSkin:'off'});if(r?.ok)$('#settings-dialog').close()};
+ window.aegis.onState(render);window.aegis.getState().then(render);window.aegis.setChatPanel({visible:true});
+diff --git a/package-lock.json b/package-lock.json
+--- a/package-lock.json
++++ b/package-lock.json
+@@ -1,12 +1,12 @@
+ {
+   "name": "aegis-chatgpt-client",
+-  "version": "1.2.18",
++  "version": "1.2.19",
+   "lockfileVersion": 3,
+   "requires": true,
+   "packages": {
+     "": {
+       "name": "aegis-chatgpt-client",
+-      "version": "1.2.18",
++      "version": "1.2.19",
+       "dependencies": {
+         "@google/genai": "^2.12.0",
+         "mammoth": "1.8.0",
+diff --git a/package.json b/package.json
+--- a/package.json
++++ b/package.json
+@@ -1,13 +1,13 @@
+ {
+   "name": "aegis-chatgpt-client",
+-  "version": "1.2.18",
+-  "description": "Minimal three-project autopilot with stable runtime identity and provenance",
++  "version": "1.2.19",
++  "description": "Minimal three-project autopilot with visible sidebar-scoped settings",
+   "main": "main.js",
+   "private": true,
+   "scripts": {
+     "start": "electron .",
+     "dev": "electron .",
+-    "test": "node tests/multi-chat-smoke.js && node tests/autopilot-resilience-smoke.js && node tests/send-contract-smoke.js && node tests/composer-first-readiness-smoke.js && node tests/no-reload-loop-smoke.js && node tests/budget-guard-smoke.js && node tests/minimal-three-project-smoke.js && node tests/chat-identity-draft-smoke.js && node tests/send-transaction-smoke.js && node tests/own-draft-retry-smoke.js && node tests/watchdog-survival-smoke.js && node tests/quiet-heartbeat-log-smoke.js && node tests/response-gate-recovery-smoke.js && node tests/supervisor-processing-retry-smoke.js && node tests/gemini-incomplete-retry-smoke.js && node tests/review-busy-retry-smoke.js && node tests/message-parser-resilience-smoke.js && node tests/single-pass-message-scan-smoke.js && node tests/supervisor-conversation-binding-smoke.js && node tests/message-role-confidence-smoke.js && node tests/explicit-role-conflict-smoke.js && node tests/uncertain-send-reconciliation-smoke.js && node tests/uncertain-response-baseline-smoke.js && node tests/runtime-identity-smoke.js",
++    "test": "node tests/multi-chat-smoke.js && node tests/autopilot-resilience-smoke.js && node tests/send-contract-smoke.js && node tests/composer-first-readiness-smoke.js && node tests/no-reload-loop-smoke.js && node tests/budget-guard-smoke.js && node tests/minimal-three-project-smoke.js && node tests/chat-identity-draft-smoke.js && node tests/send-transaction-smoke.js && node tests/own-draft-retry-smoke.js && node tests/watchdog-survival-smoke.js && node tests/quiet-heartbeat-log-smoke.js && node tests/response-gate-recovery-smoke.js && node tests/supervisor-processing-retry-smoke.js && node tests/gemini-incomplete-retry-smoke.js && node tests/review-busy-retry-smoke.js && node tests/message-parser-resilience-smoke.js && node tests/single-pass-message-scan-smoke.js && node tests/supervisor-conversation-binding-smoke.js && node tests/message-role-confidence-smoke.js && node tests/explicit-role-conflict-smoke.js && node tests/uncertain-send-reconciliation-smoke.js && node tests/uncertain-response-baseline-smoke.js && node tests/runtime-identity-smoke.js && node tests/settings-dialog-smoke.js",
+     "dist:win": "electron-builder --win nsis",
+     "pack:win": "electron-builder --win dir",
+     "dev:once": "electron ."
+diff --git a/tests/settings-dialog-smoke.js b/tests/settings-dialog-smoke.js
+new file mode 100644
+--- /dev/null
++++ b/tests/settings-dialog-smoke.js
+@@ -0,0 +1,33 @@
++const fs = require('fs');
++
++const html = fs.readFileSync('renderer/index.html', 'utf8');
++const app = fs.readFileSync('renderer/app.js', 'utf8');
++const css = fs.readFileSync('renderer/settings.css', 'utf8');
++
++for (const token of [
++  'settings.css',
++  'id="settings-dialog"'
++]) {
++  if (!html.includes(token)) throw new Error(`Missing settings HTML contract: ${token}`);
++}
++
++for (const token of [
++  'function openSettings()',
++  'state?.settings||{}',
++  "typeof dialog.showModal==='function'",
++  "dialog.setAttribute('open','')",
++  "$('#settings').onclick=openSettings"
++]) {
++  if (!app.includes(token)) throw new Error(`Missing settings interaction contract: ${token}`);
++}
++
++for (const token of [
++  '#settings-dialog',
++  'inset: 12px auto auto 12px',
++  'width: min(336px, calc(100vw - 24px))',
++  'max-height: calc(100vh - 24px)',
++  'z-index: 10000'
++]) {
++  if (!css.includes(token)) throw new Error(`Missing sidebar settings layout contract: ${token}`);
++}
++
++console.log('sidebar settings dialog smoke test: OK');
