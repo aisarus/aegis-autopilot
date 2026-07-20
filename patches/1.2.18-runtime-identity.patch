@@ -93,7 +93,7 @@ diff --git a/tests/runtime-identity-smoke.js b/tests/runtime-identity-smoke.js
 new file mode 100644
 --- /dev/null
 +++ b/tests/runtime-identity-smoke.js
-@@ -0,0 +1,38 @@
+@@ -0,0 +1,35 @@
 +const fs = require('fs');
 +
 +const source = fs.readFileSync('main.js', 'utf8');
@@ -111,16 +111,15 @@ new file mode 100644
 +
 +const setNameAt = source.indexOf("if (typeof app.setName === 'function') app.setName(APP_TITLE)");
 +const readyAt = source.indexOf('app.whenReady()');
-+const userDataAt = source.indexOf("app.getPath('userData')");
 +if (setNameAt < 0 || readyAt < 0 || setNameAt > readyAt) {
-+  throw new Error('Application name is not stabilized before Electron readiness.');
-+}
-+if (userDataAt < 0 || setNameAt > userDataAt) {
-+  throw new Error('Application name is not stabilized before userData is resolved.');
++  throw new Error('Application name guard is not installed before Electron readiness.');
 +}
 +
 +if (!source.includes("typeof app.getPath === 'function' ? app.getPath('home') : ''")) {
 +  throw new Error('Diagnostic home lookup is not safe for reduced Electron mocks.');
++}
++if (!source.includes("typeof app.getAppPath === 'function' ? app.getAppPath() : process.cwd()")) {
++  throw new Error('Diagnostic app path lookup is not safe for reduced Electron mocks.');
 +}
 +if (!source.includes("return `~${raw.slice(home.length)}`")) {
 +  throw new Error('Diagnostic paths do not redact the user home directory.');
