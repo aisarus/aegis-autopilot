@@ -221,6 +221,11 @@ try {
     Write-Host '[Aegis] Running complete smoke suite...'
     Invoke-Native -FilePath 'node' -Arguments @('scripts/run-smoke-suite.js')
 
+    if ($env:AEGIS_TEST_ONLY -eq '1') {
+      Write-Host "[Aegis] Verified runtime $runtimeVersion passed in test-only mode."
+      exit 0
+    }
+
     Stop-ExistingAegis
     Write-Host "[Aegis] Starting verified runtime $runtimeVersion from $RuntimeDir..."
     & cmd.exe /d /c dev.cmd
