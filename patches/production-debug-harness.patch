@@ -1,0 +1,75 @@
+diff --git a/main.js b/main.js
+--- a/main.js
++++ b/main.js
+@@
+   ipcMain.handle('aegis:check-all-autopilots', async () => {
+     const enabled = autopilotChats();
+     enabled.forEach((chat, index) => scheduleAutopilotScan(chat.id, { front: true, delay: index * 300 }));
+     sendChatCommand('inspect', {}, 5000).catch(() => {});
+     return { ok: true, count: enabled.length };
+   });
++  ipcMain.handle('aegis:test-send', async () => {
++    const targetUrl = safeChatUrl(state.browser.url);
++    if (!isChatUrl(targetUrl)) return { ok: false, error: 'Открой конкретный разговор ChatGPT для теста.' };
++    if (!state.browser.composerReady) return { ok: false, error: 'Поле ввода ChatGPT сейчас не готово.' };
++    if (state.browser.generating) return { ok: false, error: 'Дождись завершения текущего ответа ChatGPT.' };
++    if (dispatchBusy || responseGate) return { ok: false, error: 'Дождись завершения текущей отправки Aegis.' };
++
++    const testText = `AEGIS_TEST_${Date.now().toString(36).toUpperCase()}`;
++    const before = {
++      capturedAt: now(),
++      appVersion: app.getVersion(),
++      buildId: BUILD_ID,
++      targetUrl,
++      browser: JSON.parse(JSON.stringify(state.browser))
++    };
++    writeLog('info', 'Manual send test started', `${testText} | ${targetUrl}`);
++    const result = await sendChatCommand('send', { text: testText, targetUrl }, 25000);
++    await new Promise((resolve) => setTimeout(resolve, 900));
++    const report = {
++      kind: 'AEGIS_SEND_TEST',
++      testText,
++      before,
++      result,
++      after: {
++        capturedAt: now(),
++        browser: JSON.parse(JSON.stringify(state.browser))
++      }
++    };
++    clipboard.writeText(JSON.stringify(report, null, 2));
++    addEvent('SEND TEST', result.ok ? 'Тестовая отправка прошла' : 'Тестовая отправка не прошла', `${testText}. Подробный отчёт скопирован в буфер обмена.`, result.ok ? 'success' : 'danger');
++    writeLog(result.ok ? 'info' : 'warn', 'Manual send test completed', `${testText}: ${result.ok ? (result.method || 'ok') : (result.error || 'unknown error')}`);
++    await commit();
++    return { ok: Boolean(result.ok), testText, copied: true, report, error: result.error || '' };
++  });
+   ipcMain.handle('aegis:reload-chatgpt', async () => {
+     loadingWatch = { url: state.browser.url, since: Date.now(), recoveryAttempted: true };
+     autopilotBootstrapped = false;
+     chatView.webContents.reloadIgnoringCache();
+diff --git a/preload.js b/preload.js
+--- a/preload.js
++++ b/preload.js
+@@
+   stopAllAutopilots: () => ipcRenderer.invoke('aegis:stop-all-autopilots'),
+   checkAllAutopilots: () => ipcRenderer.invoke('aegis:check-all-autopilots'),
++  testSend: () => ipcRenderer.invoke('aegis:test-send'),
+   approveDecision: (decisionId) => ipcRenderer.invoke('aegis:approve-decision', decisionId),
+   discardDecision: (decisionId) => ipcRenderer.invoke('aegis:discard-decision', decisionId),
+diff --git a/renderer/index.html b/renderer/index.html
+--- a/renderer/index.html
++++ b/renderer/index.html
+@@
+     <button id="start" class="primary">▶ Включить автопилот</button>
+     <button id="stop">■ Выключить автопилот</button>
+     <button id="check">↻ Проверить сейчас</button>
++    <button id="test-send">🧪 Тест отправки</button>
+   </section>
+diff --git a/renderer/app.js b/renderer/app.js
+--- a/renderer/app.js
++++ b/renderer/app.js
+@@
+- $('#summary').innerHTML=`<div>Активно: <b>${sup.autopilotChatCount||0}</b></div><div>Проверок в очереди: <b>${sup.schedulerQueueCount||0}</b></div><div>Scheduler: <b>${sup.schedulerBusy?'работает':'ожидает'}</b></div><div>Ошибок сегодня: <b>${(s.events||[]).filter(e=>e.tone==='danger').length}</b></div>`;
++ $('#summary').innerHTML=`<div>Сборка: <b>${esc(s.buildId||'development')}</b></div><div>Активно: <b>${sup.autopilotChatCount||0}</b></div><div>Проверок в очереди: <b>${sup.schedulerQueueCount||0}</b></div><div>Scheduler: <b>${sup.schedulerBusy?'работает':'ожидает'}</b></div><div>Ошибок сегодня: <b>${(s.events||[]).filter(e=>e.tone==='danger').length}</b></div>`;
+ }
+-$('#start').onclick=()=>call('startAllAutopilots');$('#stop').onclick=()=>call('stopAllAutopilots');$('#check').onclick=()=>call('checkAllAutopilots');$('#pin').onclick=()=>call('pinCurrentChat');$('#logs').onclick=()=>call('openLogs');$('#copy').onclick=async()=>{await call('copyDiagnostics');toast('Диагностика скопирована')};
++$('#start').onclick=()=>call('startAllAutopilots');$('#stop').onclick=()=>call('stopAllAutopilots');$('#check').onclick=()=>call('checkAllAutopilots');$('#test-send').onclick=async()=>{const r=await call('testSend');if(r?.copied)toast(r.ok?`Отправлено: ${r.testText}`:'Тест не прошёл — отчёт скопирован')};$('#pin').onclick=()=>call('pinCurrentChat');$('#logs').onclick=()=>call('openLogs');$('#copy').onclick=async()=>{await call('copyDiagnostics');toast('Диагностика скопирована')};
