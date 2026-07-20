@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'">
+  <title>Aegis Orchestrator</title>
+  <link rel="stylesheet" href="app.css">
+</head>
+<body>
+  <header class="topbar">
+    <div>
+      <div class="eyebrow">GITHUB-NATIVE AGENT CONTROL</div>
+      <h1>Aegis Orchestrator</h1>
+      <p>Три проекта. Изолированные worktree. Проверки. Draft PR вместо автокликов.</p>
+    </div>
+    <div class="top-actions">
+      <button id="refresh-baselines" class="button button-secondary">Обновить состояние GitHub</button>
+      <div id="baseline-status" class="status-pill">GitHub ещё не прочитан</div>
+    </div>
+  </header>
+
+  <main>
+    <section class="credentials-panel" aria-labelledby="credentials-title">
+      <div class="section-heading">
+        <div>
+          <div class="eyebrow">SECURE STORAGE</div>
+          <h2 id="credentials-title">Ключи подключения</h2>
+        </div>
+        <p>После сохранения значения исчезают из формы и больше не возвращаются в интерфейс.</p>
+      </div>
+      <div id="credential-grid" class="credential-grid"></div>
+    </section>
+
+    <section aria-labelledby="projects-title">
+      <div class="section-heading">
+        <div>
+          <div class="eyebrow">ACTIVE REPOSITORIES</div>
+          <h2 id="projects-title">Проекты</h2>
+        </div>
+        <p id="active-summary">Активных запусков: 0</p>
+      </div>
+      <div id="project-grid" class="project-grid"></div>
+    </section>
+
+    <section class="activity-panel" aria-labelledby="activity-title">
+      <div class="section-heading">
+        <div>
+          <div class="eyebrow">AUDIT TRAIL</div>
+          <h2 id="activity-title">Последние события</h2>
+        </div>
+      </div>
+      <div id="event-list" class="event-list"></div>
+    </section>
+  </main>
+
+  <div id="toast" role="status" aria-live="polite"></div>
+  <script src="app.js"></script>
+</body>
+</html>
