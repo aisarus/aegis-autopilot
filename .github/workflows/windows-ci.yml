@@ -25,21 +25,30 @@ jobs:
           cache: npm
 
       - name: Install locked dependencies
-        run: npm ci
+        shell: powershell
+        run: |
+          npm ci *>&1 | Tee-Object -FilePath npm-ci.log
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Prepare and verify source
-        run: npm run verify
+        shell: powershell
+        run: |
+          npm run verify *>&1 | Tee-Object -FilePath verify.log
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
         env:
-          AEGIS_BUILD_SHA: ${{ github.sha }}+ci
+          AEGIS_BUILD_SHA: ${{ github.event.pull_request.head.sha || github.sha }}+ci
 
       - name: Create debug bundle on failure
         if: failure()
         run: npm run debug:bundle
 
-      - name: Upload debug bundle
-        if: failure()
+      - name: Upload verification evidence
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: aegis-ci-debug-${{ github.run_id }}
-          path: aegis-debug-*.txt
-          if-no-files-found: ignore
+          name: aegis-ci-evidence-${{ github.run_id }}
+          path: |
+            npm-ci.log
+            verify.log
+            aegis-debug-*.txt
+          if-no-files-found: warn
