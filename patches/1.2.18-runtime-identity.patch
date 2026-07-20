@@ -1,0 +1,125 @@
+diff --git a/main.js b/main.js
+--- a/main.js
++++ b/main.js
+@@ -67,6 +67,17 @@ const now = () => new Date().toISOString();
+ const id = (prefix) => `${prefix}-${crypto.randomUUID().slice(0, 8)}`;
+ const compact = (value, max = 500) => String(value ?? '').replace(/\s+/g, ' ').trim().slice(0, max);
++const diagnosticPath = (value) => {
++  const raw = String(value || '');
++  try {
++    const home = app.getPath('home');
++    if (home && raw.toLocaleLowerCase().startsWith(home.toLocaleLowerCase())) {
++      return `~${raw.slice(home.length)}`;
++    }
++  } catch {}
++  return raw;
++};
+ const localDayKey = (date = new Date()) => {
+   const year = date.getFullYear();
+   const month = String(date.getMonth() + 1).padStart(2, '0');
+@@ -811,8 +822,22 @@ async function copyDiagnostics() {
+   const active = activeChat();
+   const queue = active ? state.queue.filter((item) => item.chatId === active.id) : [];
+   const report = {
+-    aegis: { version: app.getVersion(), platform: process.platform, arch: process.arch },
+-    runtime: { electron: process.versions.electron, chrome: process.versions.chrome, node: process.versions.node },
++    aegis: {
++      version: app.getVersion(),
++      name: app.getName(),
++      packaged: Boolean(app.isPackaged),
++      platform: process.platform,
++      arch: process.arch
++    },
++    runtime: {
++      electron: process.versions.electron,
++      chrome: process.versions.chrome,
++      node: process.versions.node,
++      executable: path.basename(process.execPath),
++      appPath: diagnosticPath(app.getAppPath()),
++      cwd: diagnosticPath(process.cwd()),
++      verifiedDevRuntime: /[\\/]AegisAutopilot[\\/]dev-runtime(?:[\\/]|$)/i.test(app.getAppPath())
++    },
+     chatgpt: {
+       status: state.browser.status,
+       url: state.browser.url,
+@@ -1540,6 +1565,7 @@ function registerIpc() {
+   });
+ }
+ 
++app.setName(APP_TITLE);
+ if (typeof app.setAppUserModelId === 'function') app.setAppUserModelId(APP_ID);
+ installProcessGuards();
+ const hasSingleInstanceLock = typeof app.requestSingleInstanceLock === 'function' ? app.requestSingleInstanceLock() : true;
+diff --git a/package-lock.json b/package-lock.json
+--- a/package-lock.json
++++ b/package-lock.json
+@@ -1,12 +1,12 @@
+ {
+   "name": "aegis-chatgpt-client",
+-  "version": "1.2.17",
++  "version": "1.2.18",
+   "lockfileVersion": 3,
+   "requires": true,
+   "packages": {
+     "": {
+       "name": "aegis-chatgpt-client",
+-      "version": "1.2.17",
++      "version": "1.2.18",
+       "dependencies": {
+         "@google/genai": "^2.12.0",
+         "mammoth": "1.8.0",
+diff --git a/package.json b/package.json
+--- a/package.json
++++ b/package.json
+@@ -1,13 +1,13 @@
+ {
+   "name": "aegis-chatgpt-client",
+-  "version": "1.2.17",
+-  "description": "Minimal three-project autopilot with durable uncertain-send response baselines",
++  "version": "1.2.18",
++  "description": "Minimal three-project autopilot with stable runtime identity and provenance",
+   "main": "main.js",
+   "private": true,
+   "scripts": {
+     "start": "electron .",
+     "dev": "electron .",
+-    "test": "node tests/multi-chat-smoke.js && node tests/autopilot-resilience-smoke.js && node tests/send-contract-smoke.js && node tests/composer-first-readiness-smoke.js && node tests/no-reload-loop-smoke.js && node tests/budget-guard-smoke.js && node tests/minimal-three-project-smoke.js && node tests/chat-identity-draft-smoke.js && node tests/send-transaction-smoke.js && node tests/own-draft-retry-smoke.js && node tests/watchdog-survival-smoke.js && node tests/quiet-heartbeat-log-smoke.js && node tests/response-gate-recovery-smoke.js && node tests/supervisor-processing-retry-smoke.js && node tests/gemini-incomplete-retry-smoke.js && node tests/review-busy-retry-smoke.js && node tests/message-parser-resilience-smoke.js && node tests/single-pass-message-scan-smoke.js && node tests/supervisor-conversation-binding-smoke.js && node tests/message-role-confidence-smoke.js && node tests/explicit-role-conflict-smoke.js && node tests/uncertain-send-reconciliation-smoke.js && node tests/uncertain-response-baseline-smoke.js",
++    "test": "node tests/multi-chat-smoke.js && node tests/autopilot-resilience-smoke.js && node tests/send-contract-smoke.js && node tests/composer-first-readiness-smoke.js && node tests/no-reload-loop-smoke.js && node tests/budget-guard-smoke.js && node tests/minimal-three-project-smoke.js && node tests/chat-identity-draft-smoke.js && node tests/send-transaction-smoke.js && node tests/own-draft-retry-smoke.js && node tests/watchdog-survival-smoke.js && node tests/quiet-heartbeat-log-smoke.js && node tests/response-gate-recovery-smoke.js && node tests/supervisor-processing-retry-smoke.js && node tests/gemini-incomplete-retry-smoke.js && node tests/review-busy-retry-smoke.js && node tests/message-parser-resilience-smoke.js && node tests/single-pass-message-scan-smoke.js && node tests/supervisor-conversation-binding-smoke.js && node tests/message-role-confidence-smoke.js && node tests/explicit-role-conflict-smoke.js && node tests/uncertain-send-reconciliation-smoke.js && node tests/uncertain-response-baseline-smoke.js && node tests/runtime-identity-smoke.js",
+     "dist:win": "electron-builder --win nsis",
+     "pack:win": "electron-builder --win dir",
+     "dev:once": "electron ."
+diff --git a/tests/runtime-identity-smoke.js b/tests/runtime-identity-smoke.js
+new file mode 100644
+--- /dev/null
++++ b/tests/runtime-identity-smoke.js
+@@ -0,0 +1,33 @@
++const fs = require('fs');
++
++const source = fs.readFileSync('main.js', 'utf8');
++for (const token of [
++  'app.setName(APP_TITLE)',
++  'name: app.getName()',
++  'packaged: Boolean(app.isPackaged)',
++  'executable: path.basename(process.execPath)',
++  'appPath: diagnosticPath(app.getAppPath())',
++  'cwd: diagnosticPath(process.cwd())',
++  'verifiedDevRuntime:'
++]) {
++  if (!source.includes(token)) throw new Error(`Missing runtime identity contract: ${token}`);
++}
++
++const setNameAt = source.indexOf('app.setName(APP_TITLE)');
++const readyAt = source.indexOf('app.whenReady()');
++const userDataAt = source.indexOf("app.getPath('userData')");
++if (setNameAt < 0 || readyAt < 0 || setNameAt > readyAt) {
++  throw new Error('Application name is not stabilized before Electron readiness.');
++}
++if (userDataAt < 0 || setNameAt > userDataAt) {
++  throw new Error('Application name is not stabilized before userData is resolved.');
++}
++
++if (!source.includes("return `~${raw.slice(home.length)}`")) {
++  throw new Error('Diagnostic paths do not redact the user home directory.');
++}
++
++console.log('runtime identity and provenance smoke test: OK');
