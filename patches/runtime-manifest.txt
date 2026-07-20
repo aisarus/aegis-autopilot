@@ -13,3 +13,4 @@
 1.2.13-supervisor-conversation-binding.patch
 1.2.14-message-role-confidence.patch
 1.2.15-explicit-role-conflict.patch
+1.2.16-uncertain-send-reconciliation.patch
