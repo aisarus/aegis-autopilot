@@ -97,6 +97,7 @@ const baseline = {
 
   assert.equal(result.ok, true);
   assert.equal(result.status, 'ready_for_review');
+  assert.deepEqual(result.changedFiles, ['src/example.js']);
   assert.equal(result.usage.turns, 5);
   assert.equal(result.usage.toolCalls, 6);
   assert.equal(result.usage.writes, 1);
