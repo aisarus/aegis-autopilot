@@ -148,14 +148,14 @@ function Apply-RuntimePatches {
     $normalizedPatchPath = New-NormalizedPatch -SourcePath $patchPath -PatchName $patchName
     Write-Host "[Aegis] Preflighting normalized patch $patchName..."
     try {
-      Invoke-Native -FilePath 'git' -Arguments @('-C', $RuntimeDir, 'apply', '--check', $normalizedPatchPath)
+      Invoke-Native -FilePath 'git' -Arguments @('-C', $RuntimeDir, 'apply', '--verbose', '--check', $normalizedPatchPath)
     } catch {
       throw "Patch preflight failed: $patchName. $($_.Exception.Message)"
     }
 
     Write-Host "[Aegis] Applying normalized patch $patchName..."
     try {
-      Invoke-Native -FilePath 'git' -Arguments @('-C', $RuntimeDir, 'apply', $normalizedPatchPath)
+      Invoke-Native -FilePath 'git' -Arguments @('-C', $RuntimeDir, 'apply', '--verbose', $normalizedPatchPath)
     } catch {
       throw "Patch apply failed: $patchName. $($_.Exception.Message)"
     }
