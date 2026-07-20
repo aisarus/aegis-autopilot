@@ -7,7 +7,7 @@ diff --git a/main.js b/main.js
 +const diagnosticPath = (value) => {
 +  const raw = String(value || '');
 +  try {
-+    const home = app.getPath('home');
++    const home = typeof app.getPath === 'function' ? app.getPath('home') : '';
 +    if (home && raw.toLocaleLowerCase().startsWith(home.toLocaleLowerCase())) {
 +      return `~${raw.slice(home.length)}`;
 +    }
@@ -17,15 +17,16 @@ diff --git a/main.js b/main.js
  const localDayKey = (date = new Date()) => {
    const year = date.getFullYear();
    const month = String(date.getMonth() + 1).padStart(2, '0');
-@@ -811,8 +822,22 @@ async function copyDiagnostics() {
+@@ -811,8 +822,24 @@ async function copyDiagnostics() {
    const active = activeChat();
    const queue = active ? state.queue.filter((item) => item.chatId === active.id) : [];
++  const runtimeAppPath = typeof app.getAppPath === 'function' ? app.getAppPath() : process.cwd();
    const report = {
 -    aegis: { version: app.getVersion(), platform: process.platform, arch: process.arch },
 -    runtime: { electron: process.versions.electron, chrome: process.versions.chrome, node: process.versions.node },
 +    aegis: {
-+      version: app.getVersion(),
-+      name: app.getName(),
++      version: typeof app.getVersion === 'function' ? app.getVersion() : 'unknown',
++      name: typeof app.getName === 'function' ? app.getName() : APP_TITLE,
 +      packaged: Boolean(app.isPackaged),
 +      platform: process.platform,
 +      arch: process.arch
@@ -35,18 +36,18 @@ diff --git a/main.js b/main.js
 +      chrome: process.versions.chrome,
 +      node: process.versions.node,
 +      executable: path.basename(process.execPath),
-+      appPath: diagnosticPath(app.getAppPath()),
++      appPath: diagnosticPath(runtimeAppPath),
 +      cwd: diagnosticPath(process.cwd()),
-+      verifiedDevRuntime: /[\\/]AegisAutopilot[\\/]dev-runtime(?:[\\/]|$)/i.test(app.getAppPath())
++      verifiedDevRuntime: /[\\/]AegisAutopilot[\\/]dev-runtime(?:[\\/]|$)/i.test(runtimeAppPath)
 +    },
      chatgpt: {
        status: state.browser.status,
        url: state.browser.url,
-@@ -1540,6 +1565,7 @@ function registerIpc() {
+@@ -1540,6 +1567,7 @@ function registerIpc() {
    });
  }
  
-+app.setName(APP_TITLE);
++if (typeof app.setName === 'function') app.setName(APP_TITLE);
  if (typeof app.setAppUserModelId === 'function') app.setAppUserModelId(APP_ID);
  installProcessGuards();
  const hasSingleInstanceLock = typeof app.requestSingleInstanceLock === 'function' ? app.requestSingleInstanceLock() : true;
@@ -92,23 +93,23 @@ diff --git a/tests/runtime-identity-smoke.js b/tests/runtime-identity-smoke.js
 new file mode 100644
 --- /dev/null
 +++ b/tests/runtime-identity-smoke.js
-@@ -0,0 +1,33 @@
+@@ -0,0 +1,38 @@
 +const fs = require('fs');
 +
 +const source = fs.readFileSync('main.js', 'utf8');
 +for (const token of [
-+  'app.setName(APP_TITLE)',
-+  'name: app.getName()',
++  "if (typeof app.setName === 'function') app.setName(APP_TITLE)",
++  "name: typeof app.getName === 'function' ? app.getName() : APP_TITLE",
 +  'packaged: Boolean(app.isPackaged)',
 +  'executable: path.basename(process.execPath)',
-+  'appPath: diagnosticPath(app.getAppPath())',
++  'appPath: diagnosticPath(runtimeAppPath)',
 +  'cwd: diagnosticPath(process.cwd())',
 +  'verifiedDevRuntime:'
 +]) {
 +  if (!source.includes(token)) throw new Error(`Missing runtime identity contract: ${token}`);
 +}
 +
-+const setNameAt = source.indexOf('app.setName(APP_TITLE)');
++const setNameAt = source.indexOf("if (typeof app.setName === 'function') app.setName(APP_TITLE)");
 +const readyAt = source.indexOf('app.whenReady()');
 +const userDataAt = source.indexOf("app.getPath('userData')");
 +if (setNameAt < 0 || readyAt < 0 || setNameAt > readyAt) {
@@ -118,6 +119,9 @@ new file mode 100644
 +  throw new Error('Application name is not stabilized before userData is resolved.');
 +}
 +
++if (!source.includes("typeof app.getPath === 'function' ? app.getPath('home') : ''")) {
++  throw new Error('Diagnostic home lookup is not safe for reduced Electron mocks.');
++}
 +if (!source.includes("return `~${raw.slice(home.length)}`")) {
 +  throw new Error('Diagnostic paths do not redact the user home directory.');
 +}
