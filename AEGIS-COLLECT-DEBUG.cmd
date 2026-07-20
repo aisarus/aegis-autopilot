@@ -9,9 +9,7 @@ where node >nul 2>nul || (
   exit /b 1
 )
 
-call npm.cmd run patch:current
-if errorlevel 1 goto :error
-
+echo [Aegis] Collecting diagnostics without modifying the checkout...
 node scripts\create-debug-bundle.js
 if errorlevel 1 goto :error
 
@@ -23,5 +21,6 @@ exit /b 0
 :error
 echo.
 echo [Aegis] Could not create the debug bundle.
+echo [Aegis] No patch or source change was attempted.
 pause
 exit /b 1
