@@ -58,7 +58,7 @@ diff --git a/tests/watchdog-survival-smoke.js b/tests/watchdog-survival-smoke.js
 new file mode 100644
 --- /dev/null
 +++ b/tests/watchdog-survival-smoke.js
-@@ -0,0 +1,22 @@
+@@ -0,0 +1,25 @@
 +const fs = require('fs');
 +
 +const source = fs.readFileSync('main.js', 'utf8');
