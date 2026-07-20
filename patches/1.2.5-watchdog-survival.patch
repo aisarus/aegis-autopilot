@@ -9,7 +9,7 @@ diff --git a/main.js b/main.js
      chatUnresponsiveTimer = setTimeout(() => { writeLog('warn', 'ChatGPT still unresponsive after 12 seconds; reload suppressed'); sendState(); }, 12000);
      commit().catch(() => {});
    });
-@@ -1402,7 +1401,6 @@ function createWindow() {
+@@ -1402,6 +1401,5 @@ function createWindow() {
    chatView.webContents.on('responsive', () => {
      clearTimeout(chatUnresponsiveTimer);
 -  clearInterval(autopilotWatchdogTimer);
