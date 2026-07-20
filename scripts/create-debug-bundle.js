@@ -7,7 +7,9 @@ const repoDir = path.resolve(__dirname, '..');
 const packageJson = JSON.parse(fs.readFileSync(path.join(repoDir, 'package.json'), 'utf8'));
 const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
 const desktop = path.join(os.homedir(), 'Desktop');
-const outputDir = fs.existsSync(desktop) ? desktop : repoDir;
+const requestedOutputDir = process.env.AEGIS_DEBUG_OUTPUT_DIR || (process.env.CI ? repoDir : '');
+const outputDir = requestedOutputDir || (fs.existsSync(desktop) ? desktop : repoDir);
+fs.mkdirSync(outputDir, { recursive: true });
 const outputPath = path.join(outputDir, `aegis-debug-${timestamp}.txt`);
 
 function command(commandName, args) {
@@ -54,7 +56,7 @@ const checks = [
   command('git', ['status', '--short']),
   command('git', ['diff', '--stat']),
   command(process.execPath, ['--version']),
-  command('npm.cmd', ['--version'])
+  command(process.platform === 'win32' ? 'npm.cmd' : 'npm', ['--version'])
 ];
 
 const logs = findAegisLogs();
@@ -62,6 +64,7 @@ const sections = [
   '# Aegis debug bundle',
   `capturedAt: ${new Date().toISOString()}`,
   `packageVersion: ${packageJson.version}`,
+  `buildSha: ${process.env.AEGIS_BUILD_SHA || ''}`,
   `platform: ${process.platform} ${process.arch}`,
   `os: ${os.type()} ${os.release()} ${os.version?.() || ''}`,
   `node: ${process.versions.node}`,
