@@ -50,7 +50,7 @@ const semanticFallback = `function semanticAssistantFallback() {
     const composerRect = composer?.getBoundingClientRect?.();
     const rect = node.getBoundingClientRect?.();
     if (composerRect && rect && rect.top > composerRect.top + 24) return;
-    const key = \\`${text.slice(0, 400)}:\\${text.length}\\`;
+    const key = text.slice(0, 400) + ':' + text.length;
     if (seen.has(key)) return;
     seen.add(key);
     const id = cleanText(node.getAttribute?.('data-message-id') || node.getAttribute?.('data-testid') || node.id || '', 180);
@@ -62,12 +62,12 @@ const semanticFallback = `function semanticAssistantFallback() {
     const role = cleanText(node.getAttribute?.('data-message-author-role'), 30).toLowerCase();
     const hasAssistant = role === 'assistant' || Boolean(node.querySelector?.('[data-message-author-role="assistant"]'));
     const hasMarkdown = node.matches?.('.markdown, [class*="markdown"]') || Boolean(node.querySelector?.('.markdown, [class*="markdown"]'));
-    const hasAssistantActions = [...(node.querySelectorAll?.('button') || [])].some((button) => /copy|regenerate|retry|good response|bad response|копир|повтор|оцен/i.test(cleanText(\\`${button.getAttribute('aria-label') || ''} \\${button.getAttribute('data-testid') || ''}\\`, 180)));
+    const hasAssistantActions = [...(node.querySelectorAll?.('button') || [])].some((button) => /copy|regenerate|retry|good response|bad response|копир|повтор|оцен/i.test(cleanText((button.getAttribute('aria-label') || '') + ' ' + (button.getAttribute('data-testid') || ''), 180)));
     if (hasAssistant || hasMarkdown || hasAssistantActions) addCandidate(node, hasAssistant ? 'role' : (hasMarkdown ? 'markdown' : 'actions'));
   }
 
   if (!candidates.length) {
-    const actionButtons = [...main.querySelectorAll('button')].filter((button) => /copy|regenerate|retry|good response|bad response|копир|повтор|оцен/i.test(cleanText(\\`${button.getAttribute('aria-label') || ''} \\${button.getAttribute('data-testid') || ''}\\`, 180)));
+    const actionButtons = [...main.querySelectorAll('button')].filter((button) => /copy|regenerate|retry|good response|bad response|копир|повтор|оцен/i.test(cleanText((button.getAttribute('aria-label') || '') + ' ' + (button.getAttribute('data-testid') || ''), 180)));
     for (const button of actionButtons) {
       let node = button.parentElement;
       for (let depth = 0; node && depth < 14; depth += 1, node = node.parentElement) {
