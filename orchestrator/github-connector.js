@@ -88,6 +88,12 @@ class GitHubConnector {
     return this.request('GET', `/repos/${encodeRepository(repository)}`);
   }
 
+  getBranch(repository, branch) {
+    const normalizedBranch = String(branch || '').trim();
+    if (!normalizedBranch) throw new TypeError('Branch name is required.');
+    return this.request('GET', `/repos/${encodeRepository(repository)}/branches/${encodeURIComponent(normalizedBranch)}`);
+  }
+
   async getFile(repository, filePath, { ref = '' } = {}) {
     const query = ref ? `?ref=${encodeURIComponent(ref)}` : '';
     const payload = await this.request('GET', `/repos/${encodeRepository(repository)}/contents/${encodePath(filePath)}${query}`);
@@ -105,6 +111,11 @@ class GitHubConnector {
   listIssues(repository, { state = 'open', perPage = 30 } = {}) {
     const count = Math.min(100, Math.max(1, Number(perPage) || 30));
     return this.request('GET', `/repos/${encodeRepository(repository)}/issues?state=${encodeURIComponent(state)}&per_page=${count}`);
+  }
+
+  listPullRequests(repository, { state = 'open', perPage = 30 } = {}) {
+    const count = Math.min(100, Math.max(1, Number(perPage) || 30));
+    return this.request('GET', `/repos/${encodeRepository(repository)}/pulls?state=${encodeURIComponent(state)}&per_page=${count}`);
   }
 
   createIssue(repository, { title, body = '', labels = [], assignees = [] }) {
