@@ -19,6 +19,10 @@ function assertRepository(repository) {
   if (!/^[A-Za-z0-9_.-]+\/[A-Za-z0-9_.-]+$/.test(value)) {
     throw new TypeError(`Invalid GitHub repository: ${value || '<empty>'}`);
   }
+  const segments = value.split('/');
+  if (segments.some((segment) => segment === '.' || segment === '..')) {
+    throw new TypeError(`Invalid GitHub repository: ${value}`);
+  }
   return value;
 }
 
