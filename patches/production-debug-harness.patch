@@ -1,7 +1,7 @@
 diff --git a/main.js b/main.js
 --- a/main.js
 +++ b/main.js
-@@
+@@ -1715,10 +1715,44 @@
    ipcMain.handle('aegis:check-all-autopilots', async () => {
      const enabled = autopilotChats();
      enabled.forEach((chat, index) => scheduleAutopilotScan(chat.id, { front: true, delay: index * 300 }));
@@ -49,7 +49,7 @@ diff --git a/main.js b/main.js
 diff --git a/preload.js b/preload.js
 --- a/preload.js
 +++ b/preload.js
-@@
+@@ -25,4 +25,5 @@
    stopAllAutopilots: () => ipcRenderer.invoke('aegis:stop-all-autopilots'),
    checkAllAutopilots: () => ipcRenderer.invoke('aegis:check-all-autopilots'),
 +  testSend: () => ipcRenderer.invoke('aegis:test-send'),
@@ -58,7 +58,7 @@ diff --git a/preload.js b/preload.js
 diff --git a/renderer/index.html b/renderer/index.html
 --- a/renderer/index.html
 +++ b/renderer/index.html
-@@
+@@ -8,4 +8,5 @@
      <button id="start" class="primary">▶ Включить автопилот</button>
      <button id="stop">■ Выключить автопилот</button>
      <button id="check">↻ Проверить сейчас</button>
@@ -67,9 +67,10 @@ diff --git a/renderer/index.html b/renderer/index.html
 diff --git a/renderer/app.js b/renderer/app.js
 --- a/renderer/app.js
 +++ b/renderer/app.js
-@@
+@@ -12,2 +12,2 @@
 - $('#summary').innerHTML=`<div>Активно: <b>${sup.autopilotChatCount||0}</b></div><div>Проверок в очереди: <b>${sup.schedulerQueueCount||0}</b></div><div>Scheduler: <b>${sup.schedulerBusy?'работает':'ожидает'}</b></div><div>Ошибок сегодня: <b>${(s.events||[]).filter(e=>e.tone==='danger').length}</b></div>`;
 + $('#summary').innerHTML=`<div>Сборка: <b>${esc(s.buildId||'development')}</b></div><div>Активно: <b>${sup.autopilotChatCount||0}</b></div><div>Проверок в очереди: <b>${sup.schedulerQueueCount||0}</b></div><div>Scheduler: <b>${sup.schedulerBusy?'работает':'ожидает'}</b></div><div>Ошибок сегодня: <b>${(s.events||[]).filter(e=>e.tone==='danger').length}</b></div>`;
  }
+@@ -14,1 +14,1 @@
 -$('#start').onclick=()=>call('startAllAutopilots');$('#stop').onclick=()=>call('stopAllAutopilots');$('#check').onclick=()=>call('checkAllAutopilots');$('#pin').onclick=()=>call('pinCurrentChat');$('#logs').onclick=()=>call('openLogs');$('#copy').onclick=async()=>{await call('copyDiagnostics');toast('Диагностика скопирована')};
 +$('#start').onclick=()=>call('startAllAutopilots');$('#stop').onclick=()=>call('stopAllAutopilots');$('#check').onclick=()=>call('checkAllAutopilots');$('#test-send').onclick=async()=>{const r=await call('testSend');if(r?.copied)toast(r.ok?`Отправлено: ${r.testText}`:'Тест не прошёл — отчёт скопирован')};$('#pin').onclick=()=>call('pinCurrentChat');$('#logs').onclick=()=>call('openLogs');$('#copy').onclick=async()=>{await call('copyDiagnostics');toast('Диагностика скопирована')};
