@@ -1,0 +1,45 @@
+name: Aegis Windows CI
+
+on:
+  push:
+    branches: [main, testing]
+  pull_request:
+    branches: [main, testing]
+
+concurrency:
+  group: aegis-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Use Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Prepare and verify source
+        run: npm run verify
+        env:
+          AEGIS_BUILD_SHA: ${{ github.sha }}+ci
+
+      - name: Create debug bundle on failure
+        if: failure()
+        run: npm run debug:bundle
+
+      - name: Upload debug bundle
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: aegis-ci-debug-${{ github.run_id }}
+          path: aegis-debug-*.txt
+          if-no-files-found: ignore
