@@ -21,6 +21,13 @@ function copyIntoTemp(relativePath) {
   fs.copyFileSync(source, target);
 }
 
+function normalizeKnownSourceFormatting() {
+  const rendererPath = path.join(tempDir, 'renderer/app.js');
+  const source = fs.readFileSync(rendererPath, 'utf8');
+  const normalized = source.replace(/\n[ \t]+(\$\('#summary'\)\.innerHTML=)/, '\n  $1');
+  fs.writeFileSync(rendererPath, normalized, 'utf8');
+}
+
 function run(command, args, cwd = tempDir) {
   return spawnSync(command, args, { cwd, encoding: 'utf8', windowsHide: true });
 }
@@ -34,6 +41,7 @@ function fail(label, result) {
 
 try {
   [...sourceFiles, ...helperFiles].forEach(copyIntoTemp);
+  normalizeKnownSourceFormatting();
 
   const prepare = run(process.execPath, ['scripts/prepare-testing-source.js']);
   if (prepare.status !== 0) {
