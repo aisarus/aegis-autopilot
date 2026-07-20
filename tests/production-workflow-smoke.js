@@ -1,5 +1,6 @@
 const fs = require('fs');
 const assert = require('assert');
+const { spawnSync } = require('child_process');
 
 const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
 const main = fs.readFileSync('main.js', 'utf8');
@@ -10,14 +11,18 @@ const html = fs.readFileSync('renderer/index.html', 'utf8');
 const updater = fs.readFileSync('AEGIS-UPDATE-AND-RUN.cmd', 'utf8');
 const collector = fs.readFileSync('AEGIS-COLLECT-DEBUG.cmd', 'utf8');
 const prepare = fs.readFileSync('scripts/prepare-testing-source.js', 'utf8');
+const atomicPrepare = fs.readFileSync('scripts/prepare-testing-source-atomic.js', 'utf8');
 const doctor = fs.readFileSync('scripts/doctor.js', 'utf8');
 const bundle = fs.readFileSync('scripts/create-debug-bundle.js', 'utf8');
 
 assert(!pkg.scripts['patch:current'], 'legacy patch:current script must be removed');
 assert(!pkg.scripts['patch:check'], 'legacy patch:check script must be removed');
+assert.strictEqual(pkg.scripts.prepare, 'node scripts/prepare-testing-source-atomic.js', 'prepare must use the transactional wrapper');
 assert(pkg.scripts.verify.startsWith('npm run prepare'), 'verify must prepare deterministic source first');
 assert(prepare.includes('expected source anchor was not found'), 'source preparation must fail with a named missing anchor');
 assert(prepare.includes('source anchor is ambiguous'), 'source preparation must reject ambiguous replacements');
+assert(atomicPrepare.includes("mkdtempSync"), 'transactional wrapper must use an isolated temporary checkout');
+assert(atomicPrepare.includes('checkout was not modified'), 'transactional wrapper must report safe aborts');
 assert(main.includes("ipcMain.handle('aegis:test-send'"), 'main process must expose isolated send test');
 assert(main.includes("ipcMain.handle('aegis-chat:native-editor'"), 'main process must expose native editor bridge');
 assert(main.includes("kind: 'AEGIS_SEND_TEST'"), 'send test must produce a typed diagnostic report');
@@ -31,5 +36,8 @@ assert(updater.includes('npm.cmd run verify'), 'one-click updater must pass the 
 assert(!collector.includes('patch:current'), 'debug collection must never modify or prepare the checkout');
 assert(doctor.includes('[Aegis doctor] OK'), 'local doctor must remain available');
 assert(bundle.includes('# Aegis debug bundle'), 'debug bundle generator must remain available');
+
+const secondPass = spawnSync(process.execPath, ['scripts/prepare-testing-source-atomic.js'], { encoding: 'utf8', windowsHide: true });
+assert.strictEqual(secondPass.status, 0, `transactional preparation must be idempotent:\n${secondPass.stdout || ''}\n${secondPass.stderr || ''}`);
 
 console.log('production workflow smoke test: OK');
