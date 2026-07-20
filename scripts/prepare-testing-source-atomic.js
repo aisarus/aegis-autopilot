@@ -15,7 +15,8 @@ const sourceFiles = [
 const helperFiles = [
   'scripts/prepare-testing-source.js',
   'scripts/prepare-autopilot-response.js',
-  'scripts/prepare-navigation-settle.js'
+  'scripts/prepare-navigation-settle.js',
+  'scripts/prepare-supervisor-auto-execution.js'
 ];
 
 function copyIntoTemp(relativePath) {
@@ -68,6 +69,9 @@ try {
   const navigationPrepare = process.exitCode
     ? null
     : runHelper('scripts/prepare-navigation-settle.js', 'navigation settling preparation');
+  const supervisorPrepare = process.exitCode
+    ? null
+    : runHelper('scripts/prepare-supervisor-auto-execution.js', 'supervisor auto-execution preparation');
 
   if (!process.exitCode) {
     for (const relativePath of ['main.js', 'chatgpt-preload.js', 'preload.js', 'renderer/app.js']) {
@@ -85,7 +89,7 @@ try {
       const destination = path.join(repoDir, relativePath);
       fs.copyFileSync(prepared, destination);
     }
-    for (const result of [basePrepare, responsePrepare, navigationPrepare]) {
+    for (const result of [basePrepare, responsePrepare, navigationPrepare, supervisorPrepare]) {
       const output = [result?.stdout, result?.stderr].filter(Boolean).join('\n').trim();
       if (output) console.log(output);
     }
