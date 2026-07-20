@@ -1,0 +1,1 @@
+Retry after switching Windows CI evidence capture from PowerShell pipelines to explicit cmd exit-code handling.
