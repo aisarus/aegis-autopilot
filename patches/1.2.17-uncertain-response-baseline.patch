@@ -1,0 +1,77 @@
+diff --git a/main.js b/main.js
+--- a/main.js
++++ b/main.js
+@@ -519,8 +519,10 @@ async function dispatchNext({ chatId = state.activeChatId, manual = false } = {})
+     item.error = '';
+     addEvent('SENDING', item.label, `Отправляю в «${chat.title}» через DOM встроенного ChatGPT.`, 'working');
+     await commit();
+-    const beforeHash = responseHash(state.browser.messages);
++    const currentBeforeHash = responseHash(state.browser.messages);
++    const beforeHash = item.deliveryUncertain && item.deliveryBeforeHash ? item.deliveryBeforeHash : currentBeforeHash;
++    item.deliveryBeforeHash = beforeHash;
+     responseGate = { chatId: chat.id, itemId: item.id, beforeHash, started: false, generationSeen: false, lastHash: '', stableSince: 0, openedAt: Date.now() };
+     const sent = await sendChatCommand('send', { text: item.text, targetUrl: chat.url, reconcileExisting: Boolean(item.deliveryUncertain) }, 22000);
+     if (!sent.ok) {
+diff --git a/package-lock.json b/package-lock.json
+--- a/package-lock.json
++++ b/package-lock.json
+@@ -1,12 +1,12 @@
+ {
+   "name": "aegis-chatgpt-client",
+-  "version": "1.2.16",
++  "version": "1.2.17",
+   "lockfileVersion": 3,
+   "requires": true,
+   "packages": {
+     "": {
+       "name": "aegis-chatgpt-client",
+-      "version": "1.2.16",
++      "version": "1.2.17",
+       "dependencies": {
+         "@google/genai": "^2.12.0",
+         "mammoth": "1.8.0",
+diff --git a/package.json b/package.json
+--- a/package.json
++++ b/package.json
+@@ -1,13 +1,13 @@
+ {
+   "name": "aegis-chatgpt-client",
+-  "version": "1.2.16",
+-  "description": "Minimal three-project autopilot with idempotent uncertain-send reconciliation",
++  "version": "1.2.17",
++  "description": "Minimal three-project autopilot with durable uncertain-send response baselines",
+   "main": "main.js",
+   "private": true,
+   "scripts": {
+     "start": "electron .",
+     "dev": "electron .",
+-    "test": "node tests/multi-chat-smoke.js && node tests/autopilot-resilience-smoke.js && node tests/send-contract-smoke.js && node tests/composer-first-readiness-smoke.js && node tests/no-reload-loop-smoke.js && node tests/budget-guard-smoke.js && node tests/minimal-three-project-smoke.js && node tests/chat-identity-draft-smoke.js && node tests/send-transaction-smoke.js && node tests/own-draft-retry-smoke.js && node tests/watchdog-survival-smoke.js && node tests/quiet-heartbeat-log-smoke.js && node tests/response-gate-recovery-smoke.js && node tests/supervisor-processing-retry-smoke.js && node tests/gemini-incomplete-retry-smoke.js && node tests/review-busy-retry-smoke.js && node tests/message-parser-resilience-smoke.js && node tests/single-pass-message-scan-smoke.js && node tests/supervisor-conversation-binding-smoke.js && node tests/message-role-confidence-smoke.js && node tests/explicit-role-conflict-smoke.js && node tests/uncertain-send-reconciliation-smoke.js",
++    "test": "node tests/multi-chat-smoke.js && node tests/autopilot-resilience-smoke.js && node tests/send-contract-smoke.js && node tests/composer-first-readiness-smoke.js && node tests/no-reload-loop-smoke.js && node tests/budget-guard-smoke.js && node tests/minimal-three-project-smoke.js && node tests/chat-identity-draft-smoke.js && node tests/send-transaction-smoke.js && node tests/own-draft-retry-smoke.js && node tests/watchdog-survival-smoke.js && node tests/quiet-heartbeat-log-smoke.js && node tests/response-gate-recovery-smoke.js && node tests/supervisor-processing-retry-smoke.js && node tests/gemini-incomplete-retry-smoke.js && node tests/review-busy-retry-smoke.js && node tests/message-parser-resilience-smoke.js && node tests/single-pass-message-scan-smoke.js && node tests/supervisor-conversation-binding-smoke.js && node tests/message-role-confidence-smoke.js && node tests/explicit-role-conflict-smoke.js && node tests/uncertain-send-reconciliation-smoke.js && node tests/uncertain-response-baseline-smoke.js",
+     "dist:win": "electron-builder --win nsis",
+     "pack:win": "electron-builder --win dir",
+     "dev:once": "electron ."
+diff --git a/tests/uncertain-response-baseline-smoke.js b/tests/uncertain-response-baseline-smoke.js
+new file mode 100644
+--- /dev/null
++++ b/tests/uncertain-response-baseline-smoke.js
+@@ -0,0 +1,24 @@
++const fs = require('fs');
++
++const source = fs.readFileSync('main.js', 'utf8');
++for (const token of [
++  'const currentBeforeHash = responseHash(state.browser.messages)',
++  'item.deliveryUncertain && item.deliveryBeforeHash ? item.deliveryBeforeHash : currentBeforeHash',
++  'item.deliveryBeforeHash = beforeHash',
++  'responseGate = { chatId: chat.id, itemId: item.id, beforeHash'
++]) {
++  if (!source.includes(token)) throw new Error(`Missing uncertain response baseline contract: ${token}`);
++}
++
++const dispatchStart = source.indexOf('async function dispatchNext(');
++const sendAt = source.indexOf("sendChatCommand('send'", dispatchStart);
++const baselineAt = source.indexOf('item.deliveryBeforeHash = beforeHash', dispatchStart);
++if (dispatchStart < 0 || sendAt < 0 || baselineAt < 0 || baselineAt > sendAt) {
++  throw new Error('Original response baseline is not persisted before the uncertain send.');
++}
++
++console.log('uncertain send response baseline smoke test: OK');
