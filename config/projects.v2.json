@@ -1,0 +1,71 @@
+{
+  "version": 1,
+  "projects": [
+    {
+      "id": "lamdan",
+      "name": "Lamdan",
+      "repository": "aisarus/syllabus-to-os",
+      "defaultBranch": "main",
+      "agent": {
+        "provider": "openai",
+        "conversationId": null,
+        "instructionProfile": "lamdan"
+      },
+      "reviewer": {
+        "provider": "gemini",
+        "enabled": false
+      },
+      "policy": {
+        "read": "automatic",
+        "branch": "automatic",
+        "commit": "task_branch_only",
+        "pullRequest": "automatic",
+        "merge": "user_approval"
+      }
+    },
+    {
+      "id": "edge",
+      "name": "Edge mobile betting app",
+      "repository": "aisarus/edge-mobile-betting-app",
+      "defaultBranch": "main",
+      "agent": {
+        "provider": "openai",
+        "conversationId": null,
+        "instructionProfile": "edge-audit-first"
+      },
+      "reviewer": {
+        "provider": "gemini",
+        "enabled": false
+      },
+      "policy": {
+        "read": "automatic",
+        "branch": "automatic",
+        "commit": "task_branch_only",
+        "pullRequest": "automatic",
+        "merge": "user_approval"
+      }
+    },
+    {
+      "id": "aegis",
+      "name": "Aegis",
+      "repository": "aisarus/aegis-autopilot",
+      "defaultBranch": "main",
+      "agent": {
+        "provider": "openai",
+        "conversationId": null,
+        "instructionProfile": "aegis-v2-migration"
+      },
+      "reviewer": {
+        "provider": "gemini",
+        "enabled": false
+      },
+      "policy": {
+        "read": "automatic",
+        "branch": "automatic",
+        "commit": "task_branch_only",
+        "pullRequest": "automatic",
+        "merge": "user_approval"
+      }
+    }
+  ]
+}
