@@ -17,16 +17,26 @@ const task = {
   baseSha: 'a'.repeat(40),
   workspacePath: '/task/worktree'
 };
+const changedFiles = ['src/file.js', 'tests/file.test.js'];
 const agentResult = {
   status: 'ready_for_review',
   summary: 'Implemented cancellation propagation.',
   tests: ['typecheck: passed', 'focused cancellation tests: passed'],
   risks: ['Live provider cancellation remains externally unverified.'],
+  changedFiles,
   verifications: [{ commandId: 'typecheck', code: 0, timedOut: false }]
 };
 
 function gitResult(overrides = {}) {
   return { code: 0, stdout: '', stderr: '', timedOut: false, truncated: false, error: '', ...overrides };
+}
+
+function emptyGithub() {
+  return {
+    async listPullRequests() { return []; },
+    async getBranch() { return { commit: { sha: '0'.repeat(40) } }; },
+    async createPullRequest() { throw new Error('must not create'); }
+  };
 }
 
 (async () => {
@@ -38,11 +48,13 @@ function gitResult(overrides = {}) {
       const joined = args.join(' ');
       if (joined === 'branch --show-current') return gitResult({ stdout: `${task.branch}\n` });
       if (joined.startsWith('merge-base ')) return gitResult({ stdout: `${task.baseSha}\n` });
-      if (joined.startsWith('status ')) return gitResult({ stdout: ' M src/file.js\n?? tests/file.test.js\n' });
-      if (joined === 'add --all') return gitResult();
+      if (joined.startsWith('status ')) return gitResult({ stdout: ' M src/file.js\0?? tests/file.test.js\0' });
+      if (joined === 'add -- src/file.js tests/file.test.js') return gitResult();
+      if (joined === 'diff --cached --name-only -z --') return gitResult({ stdout: 'src/file.js\0tests/file.test.js\0' });
       if (joined.startsWith('diff --cached --quiet')) return gitResult({ code: 1 });
       if (joined.includes(' commit -m ')) return gitResult({ stdout: '[agent commit]\n' });
       if (joined === 'rev-parse HEAD') return gitResult({ stdout: `${commitSha}\n` });
+      if (joined === `diff --name-only -z ${task.baseSha}..${commitSha} --`) return gitResult({ stdout: 'src/file.js\0tests/file.test.js\0' });
       if (joined.startsWith('push --set-upstream')) return gitResult({ code: 1, stderr: 'network timeout' });
       throw new Error(`Unexpected git call: ${joined}`);
     }
@@ -70,6 +82,7 @@ function gitResult(overrides = {}) {
   const published = await service.publish({ project, task, agentResult, githubToken: 'github-secret' });
   assert.equal(published.ok, true);
   assert.equal(published.commitSha, commitSha);
+  assert.deepEqual(published.changedFiles, changedFiles);
   assert.equal(published.pullRequest.number, 84);
   assert.equal(published.pullRequest.draft, true);
   assert.equal(published.reusedPullRequest, false);
@@ -77,8 +90,11 @@ function gitResult(overrides = {}) {
   assert.equal(createdInput.head, task.branch);
   assert.equal(createdInput.base, 'main');
   assert(createdInput.body.includes('typecheck: passed'));
+  assert(createdInput.body.includes('`src/file.js`'));
   assert(createdInput.body.includes(task.baseSha));
   assert(createdInput.body.includes(commitSha));
+  assert(gitCalls.some((entry) => entry.args[0] === 'add' && entry.args[1] === '--' && entry.args.slice(2).join(',') === changedFiles.join(',')));
+  assert.equal(gitCalls.some((entry) => entry.args.includes('--all')), false, 'Publication must never stage all worktree files.');
   assert(gitCalls.some((entry) => entry.args[0] === 'push' && entry.options.githubToken === 'github-secret'));
   assert.equal(gitCalls.some((entry) => entry.args.includes('merge')), false, 'Publication must never merge.');
 
@@ -91,6 +107,7 @@ function gitResult(overrides = {}) {
       if (joined.startsWith('merge-base ')) return gitResult({ stdout: task.baseSha });
       if (joined.startsWith('status ')) return gitResult({ stdout: '' });
       if (joined === 'rev-parse HEAD') return gitResult({ stdout: commitSha });
+      if (joined === `diff --name-only -z ${task.baseSha}..${commitSha} --`) return gitResult({ stdout: 'src/file.js\0tests/file.test.js\0' });
       if (joined.startsWith('push ')) return gitResult();
       throw new Error(`Unexpected existing git call: ${joined}`);
     }
@@ -119,29 +136,60 @@ function gitResult(overrides = {}) {
     (error) => error.code === 'VERIFICATION_FAILED'
   );
   await assert.rejects(
+    () => service.publish({ project, task, agentResult: { ...agentResult, changedFiles: [] }, githubToken: 'x' }),
+    (error) => error.code === 'EMPTY_CHANGED_FILE_SET'
+  );
+  await assert.rejects(
     () => service.publish({ project, task: { ...task, branch: 'main' }, agentResult, githubToken: 'x' }),
     (error) => error.code === 'UNSAFE_BRANCH'
   );
 
-  const emptyGithub = {
-    async listPullRequests() { return []; },
-    async getBranch() { return { commit: { sha: task.baseSha } }; },
-    async createPullRequest() { throw new Error('must not create'); }
-  };
-  const emptyGit = {
+  const noChangeGit = {
     async runGit(args) {
       const joined = args.join(' ');
       if (joined === 'branch --show-current') return gitResult({ stdout: task.branch });
       if (joined.startsWith('merge-base ')) return gitResult({ stdout: task.baseSha });
       if (joined.startsWith('status ')) return gitResult({ stdout: '' });
       if (joined === 'rev-parse HEAD') return gitResult({ stdout: task.baseSha });
-      throw new Error(`Unexpected empty git call: ${joined}`);
+      throw new Error(`Unexpected no-change git call: ${joined}`);
     }
   };
-  const emptyService = new PublicationService({ githubConnector: emptyGithub, repositorySyncService: emptyGit });
+  const noChangeService = new PublicationService({ githubConnector: emptyGithub(), repositorySyncService: noChangeGit });
   await assert.rejects(
-    () => emptyService.publish({ project, task, agentResult, githubToken: 'x' }),
+    () => noChangeService.publish({ project, task, agentResult, githubToken: 'x' }),
     (error) => error.code === 'EMPTY_CHANGES'
+  );
+
+  const undeclaredGit = {
+    async runGit(args) {
+      const joined = args.join(' ');
+      if (joined === 'branch --show-current') return gitResult({ stdout: task.branch });
+      if (joined.startsWith('merge-base ')) return gitResult({ stdout: task.baseSha });
+      if (joined.startsWith('status ')) return gitResult({ stdout: ' M src/file.js\0?? tests/file.test.js\0?? dist/bundle.js\0' });
+      throw new Error(`Unexpected undeclared git call: ${joined}`);
+    }
+  };
+  const undeclaredService = new PublicationService({ githubConnector: emptyGithub(), repositorySyncService: undeclaredGit });
+  await assert.rejects(
+    () => undeclaredService.publish({ project, task, agentResult, githubToken: 'x' }),
+    (error) => error.code === 'UNDECLARED_CHANGES' && error.details.undeclared.includes('dist/bundle.js')
+  );
+
+  const stagedMismatchGit = {
+    async runGit(args) {
+      const joined = args.join(' ');
+      if (joined === 'branch --show-current') return gitResult({ stdout: task.branch });
+      if (joined.startsWith('merge-base ')) return gitResult({ stdout: task.baseSha });
+      if (joined.startsWith('status ')) return gitResult({ stdout: ' M src/file.js\0?? tests/file.test.js\0' });
+      if (joined === 'add -- src/file.js tests/file.test.js') return gitResult();
+      if (joined === 'diff --cached --name-only -z --') return gitResult({ stdout: 'src/file.js\0' });
+      throw new Error(`Unexpected staged-mismatch git call: ${joined}`);
+    }
+  };
+  const stagedMismatchService = new PublicationService({ githubConnector: emptyGithub(), repositorySyncService: stagedMismatchGit });
+  await assert.rejects(
+    () => stagedMismatchService.publish({ project, task, agentResult, githubToken: 'x' }),
+    (error) => error.code === 'STAGED_PATH_MISMATCH' && error.details.missing.includes('tests/file.test.js')
   );
 
   console.log('Idempotent draft PR publication v2 smoke test: OK');
