@@ -7,7 +7,12 @@
       "repository": "aisarus/syllabus-to-os",
       "defaultBranch": "main",
       "statusDocuments": ["STATUS.md", "TASKS.md", "PLANS.md", "AGENTS.md"],
-      "nextTask": "S3-003 real cancellation propagation and late-result rejection"
+      "nextTask": "S3-003 real cancellation propagation and late-result rejection",
+      "verificationCommands": [
+        { "id": "typecheck", "executable": "npm", "windowsExecutable": "npm.cmd", "args": ["run", "typecheck"], "timeoutMs": 600000 },
+        { "id": "check", "executable": "npm", "windowsExecutable": "npm.cmd", "args": ["run", "check"], "timeoutMs": 900000 },
+        { "id": "verify-docs", "executable": "npm", "windowsExecutable": "npm.cmd", "args": ["run", "verify:docs"], "timeoutMs": 180000 }
+      ]
     },
     {
       "id": "edge",
@@ -15,7 +20,13 @@
       "repository": "aisarus/edge-mobile-betting-app",
       "defaultBranch": "main",
       "statusDocuments": ["docs/PROJECT_STATE.md", "docs/ROADMAP.md", "README.md"],
-      "nextTask": "Security headers and CSP for frontend and API responses"
+      "nextTask": "Security headers and CSP for frontend and API responses",
+      "verificationCommands": [
+        { "id": "quality-fast", "executable": "python", "windowsExecutable": "python", "args": ["scripts/local_quality_gate.py", "--quick"], "timeoutMs": 900000 },
+        { "id": "web-test", "executable": "npm", "windowsExecutable": "npm.cmd", "args": ["--prefix", "apps/web", "test"], "timeoutMs": 600000 },
+        { "id": "web-typecheck", "executable": "npm", "windowsExecutable": "npm.cmd", "args": ["--prefix", "apps/web", "run", "typecheck"], "timeoutMs": 600000 },
+        { "id": "web-build", "executable": "npm", "windowsExecutable": "npm.cmd", "args": ["--prefix", "apps/web", "run", "build"], "timeoutMs": 900000 }
+      ]
     },
     {
       "id": "aegis",
@@ -23,7 +34,10 @@
       "repository": "aisarus/aegis-autopilot",
       "defaultBranch": "main",
       "statusDocuments": ["ARCHITECTURE.md", "README.md", "docs/GITHUB_ORCHESTRATOR_V2.md"],
-      "nextTask": "Replace DOM orchestration with a tested two-way GitHub connector"
+      "nextTask": "Replace DOM orchestration with a tested two-way GitHub connector",
+      "verificationCommands": [
+        { "id": "v2-smoke", "executable": "npm", "windowsExecutable": "npm.cmd", "args": ["run", "test:v2"], "timeoutMs": 900000 }
+      ]
     }
   ]
 }
