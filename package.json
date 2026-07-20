@@ -6,7 +6,7 @@
   "private": true,
   "scripts": {
     "patch:current": "node scripts/apply-current-patch.js",
-    "prestart": "npm run patch:current",
+    "prestart": "npm run patch:current && node scripts/stop-old-aegis.js",
     "start": "electron .",
     "predev": "npm run patch:current",
     "dev": "electron .",
