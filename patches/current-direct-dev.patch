@@ -54,7 +54,7 @@ diff --git a/main.js b/main.js
    ipcMain.handle('aegis:get-state', () => publicState());
    ipcMain.handle('aegis:pin-current-chat', async () => {
      try {
- diff --git a/chatgpt-preload.js b/chatgpt-preload.js
+diff --git a/chatgpt-preload.js b/chatgpt-preload.js
 --- a/chatgpt-preload.js
 +++ b/chatgpt-preload.js
 @@ -143,8 +143,8 @@ function composerElement() {
