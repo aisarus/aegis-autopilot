@@ -9,7 +9,7 @@ $ExpectedVersionFile = Join-Path $RepoDir 'patches\runtime-version.txt'
 function Invoke-Native {
   param(
     [Parameter(Mandatory = $true)][string]$FilePath,
-    [Parameter(ValueFromRemainingArguments = $true)][string[]]$Arguments
+    [Parameter(Mandatory = $true)][string[]]$Arguments
   )
 
   & $FilePath @Arguments
@@ -21,7 +21,7 @@ function Invoke-Native {
 function Get-NativeOutput {
   param(
     [Parameter(Mandatory = $true)][string]$FilePath,
-    [Parameter(ValueFromRemainingArguments = $true)][string[]]$Arguments
+    [Parameter(Mandatory = $true)][string[]]$Arguments
   )
 
   $output = & $FilePath @Arguments
@@ -35,12 +35,12 @@ function Rebuild-Runtime {
   param([Parameter(Mandatory = $true)][string]$TargetSha)
 
   Write-Host '[Aegis] Rebuilding isolated runtime...'
-  & git -C $RepoDir worktree remove --force $RuntimeDir 2>$null
+  & git @('-C', $RepoDir, 'worktree', 'remove', '--force', $RuntimeDir) 2>$null
   if (Test-Path $RuntimeDir) {
     Remove-Item -LiteralPath $RuntimeDir -Recurse -Force
   }
-  Invoke-Native git -C $RepoDir worktree prune
-  Invoke-Native git -C $RepoDir worktree add --detach $RuntimeDir $TargetSha
+  Invoke-Native -FilePath 'git' -Arguments @('-C', $RepoDir, 'worktree', 'prune')
+  Invoke-Native -FilePath 'git' -Arguments @('-C', $RepoDir, 'worktree', 'add', '--detach', $RuntimeDir, $TargetSha)
 }
 
 function Prepare-Runtime {
@@ -50,9 +50,9 @@ function Prepare-Runtime {
   if (Test-Path $gitMarker) {
     try {
       Write-Host "[Aegis] Refreshing isolated runtime at $TargetSha..."
-      Invoke-Native git -C $RuntimeDir reset --hard
-      Invoke-Native git -C $RuntimeDir clean -fd -e 'node_modules/'
-      Invoke-Native git -C $RuntimeDir checkout --detach $TargetSha
+      Invoke-Native -FilePath 'git' -Arguments @('-C', $RuntimeDir, 'reset', '--hard')
+      Invoke-Native -FilePath 'git' -Arguments @('-C', $RuntimeDir, 'clean', '-fd', '-e', 'node_modules/')
+      Invoke-Native -FilePath 'git' -Arguments @('-C', $RuntimeDir, 'checkout', '--detach', $TargetSha)
       return
     } catch {
       Write-Host "[Aegis] Existing runtime cannot be refreshed: $($_.Exception.Message)"
@@ -77,14 +77,14 @@ function Apply-RuntimePatches {
 
     Write-Host "[Aegis] Preflighting patch $patchName..."
     try {
-      Invoke-Native git -C $RuntimeDir apply --recount --check $patchPath
+      Invoke-Native -FilePath 'git' -Arguments @('-C', $RuntimeDir, 'apply', '--recount', '--check', $patchPath)
     } catch {
       throw "Patch preflight failed: $patchName. $($_.Exception.Message)"
     }
 
     Write-Host "[Aegis] Applying patch $patchName..."
     try {
-      Invoke-Native git -C $RuntimeDir apply --recount $patchPath
+      Invoke-Native -FilePath 'git' -Arguments @('-C', $RuntimeDir, 'apply', '--recount', $patchPath)
     } catch {
       throw "Patch apply failed: $patchName. $($_.Exception.Message)"
     }
@@ -133,7 +133,7 @@ function Stop-ExistingAegis {
 }
 
 try {
-  $targetSha = Get-NativeOutput git -C $RepoDir rev-parse HEAD
+  $targetSha = Get-NativeOutput -FilePath 'git' -Arguments @('-C', $RepoDir, 'rev-parse', 'HEAD')
   Prepare-Runtime -TargetSha $targetSha
   Apply-RuntimePatches
   $runtimeVersion = Assert-RuntimeVersion
@@ -141,14 +141,14 @@ try {
   Push-Location $RuntimeDir
   try {
     Write-Host '[Aegis] Syncing dependencies in isolated runtime...'
-    Invoke-Native npm.cmd install
+    Invoke-Native -FilePath 'npm.cmd' -Arguments @('install')
 
     Write-Host '[Aegis] Checking syntax...'
-    Invoke-Native node --check main.js
-    Invoke-Native node --check chatgpt-preload.js
+    Invoke-Native -FilePath 'node' -Arguments @('--check', 'main.js')
+    Invoke-Native -FilePath 'node' -Arguments @('--check', 'chatgpt-preload.js')
 
     Write-Host '[Aegis] Running tests...'
-    Invoke-Native npm.cmd test
+    Invoke-Native -FilePath 'npm.cmd' -Arguments @('test')
 
     Stop-ExistingAegis
     Write-Host "[Aegis] Starting verified runtime $runtimeVersion from $RuntimeDir..."
