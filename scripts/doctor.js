@@ -5,7 +5,6 @@ const { spawnSync } = require('child_process');
 const repoDir = path.resolve(__dirname, '..');
 const failures = [];
 const notes = [];
-const warnings = [];
 
 function run(command, args) {
   return spawnSync(command, args, { cwd: repoDir, encoding: 'utf8', windowsHide: true });
@@ -25,8 +24,10 @@ const lockPath = requireFile('package-lock.json');
   'chatgpt-preload.js',
   'renderer/index.html',
   'renderer/app.js',
-  'patches/current-direct-dev.patch',
-  'patches/production-debug-harness.patch',
+  'scripts/prepare-testing-source.js',
+  'scripts/create-debug-bundle.js',
+  'scripts/stop-old-aegis.js',
+  'tests/production-workflow-smoke.js',
   'AEGIS-UPDATE-AND-RUN.cmd',
   'AEGIS-COLLECT-DEBUG.cmd'
 ].forEach(requireFile);
@@ -38,7 +39,9 @@ if (fs.existsSync(packagePath) && fs.existsSync(lockPath)) {
   const pkg = JSON.parse(fs.readFileSync(packagePath, 'utf8'));
   const lock = JSON.parse(fs.readFileSync(lockPath, 'utf8'));
   const lockVersion = lock.packages?.['']?.version || lock.version;
-  if (pkg.version !== lockVersion) warnings.push(`package metadata version is ${pkg.version}; lock metadata still says ${lockVersion}`);
+  if (pkg.version !== lockVersion) failures.push(`package.json version ${pkg.version} does not match package-lock ${lockVersion}`);
+  if (pkg.scripts?.['patch:current'] || pkg.scripts?.['patch:check']) failures.push('legacy patch-on-start scripts are still registered');
+  if (!String(pkg.scripts?.verify || '').startsWith('npm run prepare')) failures.push('verify must start with deterministic source preparation');
   notes.push(`Aegis ${pkg.version}`);
 }
 
@@ -46,9 +49,34 @@ const sha = run('git', ['rev-parse', '--short=12', 'HEAD']);
 if (sha.status === 0) notes.push(`commit ${sha.stdout.trim()}`);
 else failures.push(`git rev-parse failed: ${(sha.stderr || sha.stdout).trim()}`);
 
-for (const file of ['main.js', 'preload.js', 'chatgpt-preload.js', 'renderer/app.js', 'scripts/apply-current-patch.js', 'scripts/create-debug-bundle.js']) {
+for (const file of [
+  'main.js',
+  'preload.js',
+  'chatgpt-preload.js',
+  'renderer/app.js',
+  'scripts/prepare-testing-source.js',
+  'scripts/create-debug-bundle.js',
+  'scripts/stop-old-aegis.js',
+  'tests/production-workflow-smoke.js'
+]) {
   const checked = run(process.execPath, ['--check', file]);
   if (checked.status !== 0) failures.push(`Syntax check failed for ${file}: ${(checked.stderr || checked.stdout).trim()}`);
+}
+
+const requiredMarkers = [
+  ['main.js', "ipcMain.handle('aegis-chat:native-editor'"],
+  ['main.js', "ipcMain.handle('aegis:test-send'"],
+  ['chatgpt-preload.js', "nativeEditor('insert-text'"],
+  ['chatgpt-preload.js', "return 'native-enter'"],
+  ['preload.js', 'testSend:'],
+  ['renderer/index.html', 'id="test-send"'],
+  ['renderer/app.js', "call('testSend')"]
+];
+for (const [relativePath, marker] of requiredMarkers) {
+  const absolutePath = path.join(repoDir, relativePath);
+  if (fs.existsSync(absolutePath) && !fs.readFileSync(absolutePath, 'utf8').includes(marker)) {
+    failures.push(`Prepared source marker missing in ${relativePath}: ${marker}`);
+  }
 }
 
 const diffCheck = run('git', ['diff', '--check']);
@@ -62,4 +90,3 @@ if (failures.length) {
 
 console.log(`[Aegis doctor] OK — ${notes.join(' · ')}`);
 console.log(`[Aegis doctor] Node ${process.versions.node} · ${process.platform} ${process.arch}`);
-warnings.forEach((warning) => console.warn(`[Aegis doctor] warning: ${warning}`));
