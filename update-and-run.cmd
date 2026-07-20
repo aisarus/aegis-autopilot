@@ -65,9 +65,18 @@ if not exist "%PATCH_MANIFEST%" exit /b 0
 for /f "usebackq eol=# delims=" %%P in ("%PATCH_MANIFEST%") do (
   set "PATCH_NAME=%%P"
   if not "!PATCH_NAME!"=="" (
-    echo [Aegis] Applying verified patch !PATCH_NAME!...
-    git -C "%RUNTIME_DIR%" apply --check "%REPO_DIR%\patches\!PATCH_NAME!" || exit /b 1
-    git -C "%RUNTIME_DIR%" apply "%REPO_DIR%\patches\!PATCH_NAME!" || exit /b 1
+    echo [Aegis] Preflighting patch !PATCH_NAME!...
+    git -C "%RUNTIME_DIR%" apply --recount --check "%REPO_DIR%\patches\!PATCH_NAME!"
+    if errorlevel 1 (
+      echo [Aegis] Patch preflight failed: !PATCH_NAME!
+      exit /b 1
+    )
+    echo [Aegis] Applying patch !PATCH_NAME!...
+    git -C "%RUNTIME_DIR%" apply --recount "%REPO_DIR%\patches\!PATCH_NAME!"
+    if errorlevel 1 (
+      echo [Aegis] Patch apply failed: !PATCH_NAME!
+      exit /b 1
+    )
   )
 )
 exit /b 0
