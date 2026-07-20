@@ -15,13 +15,14 @@ const atomicPrepare = fs.readFileSync('scripts/prepare-testing-source-atomic.js'
 const doctor = fs.readFileSync('scripts/doctor.js', 'utf8');
 const bundle = fs.readFileSync('scripts/create-debug-bundle.js', 'utf8');
 
+assert(!pkg.scripts.prepare, 'npm lifecycle hook prepare must stay unused');
 assert(!pkg.scripts['patch:current'], 'legacy patch:current script must be removed');
 assert(!pkg.scripts['patch:check'], 'legacy patch:check script must be removed');
-assert.strictEqual(pkg.scripts.prepare, 'node scripts/prepare-testing-source-atomic.js', 'prepare must use the transactional wrapper');
-assert(pkg.scripts.verify.startsWith('npm run prepare'), 'verify must prepare deterministic source first');
+assert.strictEqual(pkg.scripts['source:prepare'], 'node scripts/prepare-testing-source-atomic.js', 'source:prepare must use the transactional wrapper');
+assert(pkg.scripts.verify.startsWith('npm run source:prepare'), 'verify must explicitly prepare deterministic source first');
 assert(prepare.includes('expected source anchor was not found'), 'source preparation must fail with a named missing anchor');
 assert(prepare.includes('source anchor is ambiguous'), 'source preparation must reject ambiguous replacements');
-assert(atomicPrepare.includes("mkdtempSync"), 'transactional wrapper must use an isolated temporary checkout');
+assert(atomicPrepare.includes('mkdtempSync'), 'transactional wrapper must use an isolated temporary checkout');
 assert(atomicPrepare.includes('checkout was not modified'), 'transactional wrapper must report safe aborts');
 assert(main.includes("ipcMain.handle('aegis:test-send'"), 'main process must expose isolated send test');
 assert(main.includes("ipcMain.handle('aegis-chat:native-editor'"), 'main process must expose native editor bridge');
