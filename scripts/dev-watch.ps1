@@ -12,7 +12,9 @@ $watchPaths = @(
   (Join-Path $root 'preload.js'),
   (Join-Path $root 'chatgpt-preload.js'),
   (Join-Path $root 'renderer'),
-  (Join-Path $root 'adapters')
+  (Join-Path $root 'adapters'),
+  (Join-Path $root 'v2'),
+  (Join-Path $root 'config')
 )
 
 $lastChange = Get-Date '2000-01-01'
@@ -44,7 +46,7 @@ foreach ($path in $watchPaths) {
 }
 
 $process = Start-Aegis
-Write-Host "[Aegis] Watching source files. Ctrl+C stops dev mode." -ForegroundColor Green
+Write-Host "[Aegis] Watching legacy and v2 source files. Ctrl+C stops dev mode." -ForegroundColor Green
 
 try {
   while ($true) {
