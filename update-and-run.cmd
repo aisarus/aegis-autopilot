@@ -12,10 +12,16 @@ where node >nul 2>nul || (
   pause
   exit /b 1
 )
+where powershell >nul 2>nul || (
+  echo Windows PowerShell is not available.
+  pause
+  exit /b 1
+)
 
 set "REPO_DIR=%CD%"
 set "RUNTIME_DIR=%LOCALAPPDATA%\AegisAutopilot\dev-runtime"
 set "PATCH_MANIFEST=%REPO_DIR%\patches\runtime-manifest.txt"
+set "EXPECTED_VERSION_FILE=%REPO_DIR%\patches\runtime-version.txt"
 
 echo [Aegis] Pulling latest repository state...
 git pull --ff-only || goto :error
@@ -25,6 +31,16 @@ call :prepare_runtime || goto :error
 call :apply_runtime_patches || goto :error
 
 pushd "%RUNTIME_DIR%" || goto :error
+set "EXPECTED_RUNTIME_VERSION="
+if exist "%EXPECTED_VERSION_FILE%" set /p EXPECTED_RUNTIME_VERSION=<"%EXPECTED_VERSION_FILE%"
+set "RUNTIME_VERSION="
+for /f "delims=" %%V in ('node -p "require('./package.json').version"') do set "RUNTIME_VERSION=%%V"
+echo [Aegis] Prepared runtime version !RUNTIME_VERSION!; expected !EXPECTED_RUNTIME_VERSION!.
+if defined EXPECTED_RUNTIME_VERSION if /I not "!RUNTIME_VERSION!"=="!EXPECTED_RUNTIME_VERSION!" (
+  echo [Aegis] Runtime version verification failed.
+  goto :runtime_error
+)
+
 echo [Aegis] Syncing dependencies in isolated runtime...
 call npm install || goto :runtime_error
 
@@ -35,7 +51,8 @@ node --check chatgpt-preload.js || goto :runtime_error
 echo [Aegis] Running tests...
 call npm test || goto :runtime_error
 
-echo [Aegis] Starting verified runtime...
+call :stop_existing_aegis || goto :runtime_error
+echo [Aegis] Starting verified runtime !RUNTIME_VERSION! from %RUNTIME_DIR%...
 call dev.cmd
 set "RUN_RESULT=%errorlevel%"
 popd
@@ -81,8 +98,15 @@ for /f "usebackq eol=# delims=" %%P in ("%PATCH_MANIFEST%") do (
 )
 exit /b 0
 
+:stop_existing_aegis
+echo [Aegis] Closing stale Aegis processes before verified launch...
+powershell -NoProfile -ExecutionPolicy Bypass -Command "$all = Get-CimInstance Win32_Process -ErrorAction SilentlyContinue; $targets = @($all | Where-Object { $_.Name -ieq 'Aegis.exe' -or ($_.Name -ieq 'electron.exe' -and [string]$_.CommandLine -match '(?i)(AegisAutopilot\\dev-runtime|aegis-autopilot|aegis-chatgpt-client)') }); foreach ($target in $targets) { try { $process = Get-Process -Id $target.ProcessId -ErrorAction Stop; if ($process.MainWindowHandle -ne 0) { $null = $process.CloseMainWindow() } } catch {} }; Start-Sleep -Seconds 2; foreach ($target in $targets) { Stop-Process -Id $target.ProcessId -Force -ErrorAction SilentlyContinue }"
+if errorlevel 1 exit /b 1
+exit /b 0
+
 :runtime_error
 set "RUN_RESULT=%errorlevel%"
+if "%RUN_RESULT%"=="0" set "RUN_RESULT=1"
 popd
 exit /b %RUN_RESULT%
 
