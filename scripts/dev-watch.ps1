@@ -3,8 +3,8 @@ $root = Split-Path -Parent $PSScriptRoot
 Set-Location $root
 
 function Start-Aegis {
-  Write-Host "[Aegis] Starting Electron from source..." -ForegroundColor Cyan
-  return Start-Process -FilePath "cmd.exe" -ArgumentList "/c", "npx electron ." -WorkingDirectory $root -PassThru
+  Write-Host "[Aegis] Preparing and starting Electron from source..." -ForegroundColor Cyan
+  return Start-Process -FilePath "cmd.exe" -ArgumentList "/d", "/s", "/c", "npm.cmd run dev:once" -WorkingDirectory $root -PassThru
 }
 
 $watchPaths = @(
@@ -55,7 +55,7 @@ try {
     }
     if ($global:restartRequested -and ((Get-Date) - $global:lastChange).TotalMilliseconds -ge 700) {
       $global:restartRequested = $false
-      Write-Host "[Aegis] Source changed; restarting Electron..." -ForegroundColor Yellow
+      Write-Host "[Aegis] Source changed; preparing and restarting Electron..." -ForegroundColor Yellow
       try { taskkill /PID $process.Id /T /F | Out-Null } catch {}
       Start-Sleep -Milliseconds 250
       $process = Start-Aegis
