@@ -68,6 +68,8 @@ Every push to `testing` or `main` and every pull request runs Windows CI with No
 - JavaScript syntax checks
 - the full prepared smoke suite
 - an idempotence check proving a second preparation performs zero checkout writes
+- package and lockfile version equality
+- a direct-source version newer than the legacy runtime floor while that legacy marker exists
 - a debug artifact on failure
 
 A red CI build must not be offered for user testing.
@@ -96,5 +98,7 @@ A fix is not done because code was changed. It is done only when:
 ## Versioning
 
 - Patch version increases before a testing commit is offered as a new user acceptance candidate.
+- The direct-source line starts at `1.2.20`, which is newer than the retained legacy runtime marker `1.2.19`.
+- `package.json` and the root package entry in `package-lock.json` must always match.
 - The runtime exposes both the semantic version and exact Git commit.
 - Diagnostic reports must include both values.
