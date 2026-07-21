@@ -16,6 +16,21 @@ function requireFile(relativePath) {
   return absolutePath;
 }
 
+function parseVersion(value) {
+  const match = /^(\d+)\.(\d+)\.(\d+)$/.exec(String(value || '').trim());
+  return match ? match.slice(1).map(Number) : null;
+}
+
+function compareVersions(left, right) {
+  const a = parseVersion(left);
+  const b = parseVersion(right);
+  if (!a || !b) return null;
+  for (let index = 0; index < 3; index += 1) {
+    if (a[index] !== b[index]) return a[index] > b[index] ? 1 : -1;
+  }
+  return 0;
+}
+
 const packagePath = requireFile('package.json');
 const lockPath = requireFile('package-lock.json');
 [
@@ -41,6 +56,14 @@ if (fs.existsSync(packagePath) && fs.existsSync(lockPath)) {
   const lock = JSON.parse(fs.readFileSync(lockPath, 'utf8'));
   const lockVersion = lock.packages?.['']?.version || lock.version;
   if (pkg.version !== lockVersion) failures.push(`package.json version ${pkg.version} does not match package-lock ${lockVersion}`);
+  if (!parseVersion(pkg.version)) failures.push(`package version must be numeric semver; found ${pkg.version}`);
+  const legacyVersionPath = path.join(repoDir, 'patches', 'runtime-version.txt');
+  if (fs.existsSync(legacyVersionPath)) {
+    const legacyVersion = fs.readFileSync(legacyVersionPath, 'utf8').trim();
+    const order = compareVersions(pkg.version, legacyVersion);
+    if (order === null) failures.push(`cannot compare package version ${pkg.version} with legacy runtime ${legacyVersion}`);
+    else if (order <= 0) failures.push(`direct-source version ${pkg.version} must be newer than legacy runtime ${legacyVersion}`);
+  }
   if (pkg.scripts?.prepare) failures.push('npm lifecycle script "prepare" must stay unused');
   if (pkg.scripts?.['patch:current'] || pkg.scripts?.['patch:check']) failures.push('legacy patch-on-start scripts are still registered');
   if (pkg.scripts?.['source:prepare'] !== 'node scripts/prepare-testing-source-atomic.js') failures.push('source:prepare must use the transactional source wrapper');
