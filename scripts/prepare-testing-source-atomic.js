@@ -9,6 +9,7 @@ const sourceFiles = [
   'main.js',
   'chatgpt-preload.js',
   'preload.js',
+  'lib/supervisor-policy.js',
   'renderer/index.html',
   'renderer/app.js'
 ];
@@ -74,7 +75,7 @@ try {
     : runHelper('scripts/prepare-supervisor-auto-execution.js', 'supervisor auto-execution preparation');
 
   if (!process.exitCode) {
-    for (const relativePath of ['main.js', 'chatgpt-preload.js', 'preload.js', 'renderer/app.js']) {
+    for (const relativePath of ['main.js', 'chatgpt-preload.js', 'preload.js', 'lib/supervisor-policy.js', 'renderer/app.js']) {
       const syntax = run(process.execPath, ['--check', relativePath]);
       if (syntax.status !== 0) {
         fail(`syntax check failed for prepared ${relativePath}; checkout was not modified`, syntax);
@@ -84,9 +85,15 @@ try {
   }
 
   if (!process.exitCode) {
+    const policyLoad = run(process.execPath, ['-e', "require('./lib/supervisor-policy')"]);
+    if (policyLoad.status !== 0) fail('prepared supervisor policy cannot be loaded; checkout was not modified', policyLoad);
+  }
+
+  if (!process.exitCode) {
     for (const relativePath of sourceFiles) {
       const prepared = path.join(tempDir, relativePath);
       const destination = path.join(repoDir, relativePath);
+      fs.mkdirSync(path.dirname(destination), { recursive: true });
       fs.copyFileSync(prepared, destination);
     }
     for (const result of [basePrepare, responsePrepare, navigationPrepare, supervisorPrepare]) {
