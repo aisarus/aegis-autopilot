@@ -18,6 +18,18 @@ Every testing commit must be reproducible from one clean checkout and diagnosabl
 4. Never launch the installed desktop shortcut while testing. The runner closes stale installed and development processes before launch.
 5. The Aegis status panel shows the exact build id.
 
+## Supported launch and build entrypoints
+
+The checked-in testing source is prepared transactionally before every supported runtime or packaging path:
+
+- `npm start`
+- `npm run dev`
+- `npm run dev:once`
+- `npm run dist:win`
+- `npm run pack:win`
+
+The Windows build commands run the full verification gate before invoking `electron-builder`. Do not invoke `electron .` or `electron-builder` directly from a clean checkout because that bypasses npm lifecycle guards.
+
 ## Debug workflow
 
 Do not test the full Gemini autopilot first.

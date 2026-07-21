@@ -20,6 +20,11 @@ assert(!pkg.scripts['patch:current'], 'legacy patch:current script must be remov
 assert(!pkg.scripts['patch:check'], 'legacy patch:check script must be removed');
 assert.strictEqual(pkg.scripts['source:prepare'], 'node scripts/prepare-testing-source-atomic.js', 'source:prepare must use the transactional wrapper');
 assert(pkg.scripts.verify.startsWith('npm run source:prepare'), 'verify must explicitly prepare deterministic source first');
+assert.strictEqual(pkg.scripts.prestart, 'npm run source:prepare && node scripts/stop-old-aegis.js', 'npm start must prepare source before launch');
+assert.strictEqual(pkg.scripts.predev, 'npm run source:prepare', 'npm run dev must prepare source before launch');
+assert.strictEqual(pkg.scripts['predev:once'], 'npm run source:prepare', 'npm run dev:once must not bypass source preparation');
+assert.strictEqual(pkg.scripts['predist:win'], 'npm run verify', 'Windows installer builds must verify and prepare source first');
+assert.strictEqual(pkg.scripts['prepack:win'], 'npm run verify', 'Windows directory builds must verify and prepare source first');
 assert(prepare.includes('expected source anchor was not found'), 'source preparation must fail with a named missing anchor');
 assert(prepare.includes('source anchor is ambiguous'), 'source preparation must reject ambiguous replacements');
 assert(atomicPrepare.includes('mkdtempSync'), 'transactional wrapper must use an isolated temporary checkout');
