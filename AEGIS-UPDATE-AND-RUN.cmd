@@ -20,6 +20,7 @@ exit /b %RESULT%
 
 :worker
 set "REPO=%~2"
+set "RUNTIME_PATHS=main.js preload.js chatgpt-preload.js package.json package-lock.json adapters lib renderer"
 cd /d "%REPO%"
 
 where git >nul 2>nul || goto :missing_git
@@ -42,11 +43,11 @@ if errorlevel 1 goto :error
 git reset --hard origin/testing
 if errorlevel 1 goto :error
 
-echo [3/7] Removing stale untracked repository files...
-git clean -fd -- .
+echo [3/7] Removing stale untracked runtime files...
+git clean -fd -- %RUNTIME_PATHS%
 if errorlevel 1 goto :error
-for /f "delims=" %%S in ('git status --porcelain --untracked-files^=normal') do (
-  echo [Aegis] Worktree is not clean after synchronization: %%S
+for /f "delims=" %%S in ('git status --porcelain --untracked-files^=normal -- %RUNTIME_PATHS%') do (
+  echo [Aegis] Runtime paths are not clean after synchronization: %%S
   goto :error
 )
 
