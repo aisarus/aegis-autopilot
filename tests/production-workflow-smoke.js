@@ -78,10 +78,13 @@ assert(renderer.includes("call('testSend')"), 'test-send button must invoke the 
 assert(updater.includes('npm.cmd ci'), 'one-click updater must install from the lockfile');
 assert(updater.includes('npm.cmd run verify'), 'one-click updater must pass the full verification gate');
 const resetIndex = updater.indexOf('git reset --hard origin/testing');
-const cleanCommand = `git clean -fd -- ${runtimePathspecText}`;
-const statusCommand = `git status --porcelain --untracked-files^=normal -- ${runtimePathspecText}`;
+const pathspecDefinition = `set "RUNTIME_PATHS=${runtimePathspecText}"`;
+const cleanCommand = 'git clean -fd -- %RUNTIME_PATHS%';
+const statusCommand = 'git status --porcelain --untracked-files^=normal -- %RUNTIME_PATHS%';
+const pathspecIndex = updater.indexOf(pathspecDefinition);
 const cleanIndex = updater.indexOf(cleanCommand);
 const cleanlinessCheckIndex = updater.indexOf(statusCommand);
+assert(pathspecIndex >= 0, 'one-click updater must define the exact runtime cleanup pathspecs');
 assert(resetIndex >= 0, 'one-click updater must hard-reset tracked files');
 assert(cleanIndex > resetIndex, 'one-click updater must remove stale untracked runtime files after reset');
 assert(cleanlinessCheckIndex > cleanIndex, 'one-click updater must verify runtime paths after removing stale files');
