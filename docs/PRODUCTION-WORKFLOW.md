@@ -18,17 +18,20 @@ Every testing commit must be reproducible from one clean checkout and diagnosabl
 4. Never launch the installed desktop shortcut while testing. The runner closes stale installed and development processes before launch.
 5. The Aegis status panel shows the exact build id.
 
-## Supported launch and build entrypoints
+## Supported launch, check and build entrypoints
 
-The checked-in testing source is prepared transactionally before every supported runtime or packaging path:
+The checked-in testing source is prepared transactionally before every supported public runtime, check or packaging path:
 
 - `npm start`
 - `npm run dev`
 - `npm run dev:once`
+- `npm run doctor`
+- `npm test`
+- `npm run verify`
 - `npm run dist:win`
 - `npm run pack:win`
 
-The Windows build commands run the full verification gate before invoking `electron-builder`. Do not invoke `electron .` or `electron-builder` directly from a clean checkout because that bypasses npm lifecycle guards.
+`doctor:prepared` and `test:prepared` are internal building blocks used only after `source:prepare`; do not invoke them directly from a clean checkout. Windows build commands run the full verification gate before invoking `electron-builder`. Do not invoke `electron .` or `electron-builder` directly from a clean checkout because that bypasses npm script guards.
 
 ## Debug workflow
 
@@ -56,10 +59,10 @@ Only after the isolated send test passes should the queue and Gemini supervisor 
 Every push to `testing` or `main` and every pull request runs Windows CI with Node.js 22:
 
 - `npm ci`
-- ordered source preparation
-- `npm run doctor`
+- one ordered transactional source preparation
+- prepared-source doctor checks
 - JavaScript syntax checks
-- the full smoke suite
+- the full prepared smoke suite
 - a debug artifact on failure
 
 A red CI build must not be offered for user testing.
