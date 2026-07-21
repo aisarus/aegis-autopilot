@@ -10,6 +10,7 @@ const sourceFiles = [
   'chatgpt-preload.js',
   'preload.js',
   'lib/supervisor-policy.js',
+  'lib/navigation-policy.js',
   'renderer/index.html',
   'renderer/app.js'
 ];
@@ -17,6 +18,7 @@ const helperFiles = [
   'scripts/prepare-testing-source.js',
   'scripts/prepare-autopilot-response.js',
   'scripts/prepare-navigation-settle.js',
+  'scripts/prepare-navigation-security.js',
   'scripts/prepare-supervisor-auto-execution.js',
   'scripts/prepare-watchdog-survival.js'
 ];
@@ -71,6 +73,9 @@ try {
   const navigationPrepare = process.exitCode
     ? null
     : runHelper('scripts/prepare-navigation-settle.js', 'navigation settling preparation');
+  const navigationSecurityPrepare = process.exitCode
+    ? null
+    : runHelper('scripts/prepare-navigation-security.js', 'navigation security preparation');
   const supervisorPrepare = process.exitCode
     ? null
     : runHelper('scripts/prepare-supervisor-auto-execution.js', 'supervisor auto-execution preparation');
@@ -79,7 +84,7 @@ try {
     : runHelper('scripts/prepare-watchdog-survival.js', 'watchdog survival preparation');
 
   if (!process.exitCode) {
-    for (const relativePath of ['main.js', 'chatgpt-preload.js', 'preload.js', 'lib/supervisor-policy.js', 'renderer/app.js']) {
+    for (const relativePath of ['main.js', 'chatgpt-preload.js', 'preload.js', 'lib/supervisor-policy.js', 'lib/navigation-policy.js', 'renderer/app.js']) {
       const syntax = run(process.execPath, ['--check', relativePath]);
       if (syntax.status !== 0) {
         fail(`syntax check failed for prepared ${relativePath}; checkout was not modified`, syntax);
@@ -89,8 +94,8 @@ try {
   }
 
   if (!process.exitCode) {
-    const policyLoad = run(process.execPath, ['-e', "require('./lib/supervisor-policy')"]);
-    if (policyLoad.status !== 0) fail('prepared supervisor policy cannot be loaded; checkout was not modified', policyLoad);
+    const policyLoad = run(process.execPath, ['-e', "require('./lib/supervisor-policy'); require('./lib/navigation-policy')"]);
+    if (policyLoad.status !== 0) fail('prepared policy modules cannot be loaded; checkout was not modified', policyLoad);
   }
 
   if (!process.exitCode) {
@@ -100,7 +105,7 @@ try {
       fs.mkdirSync(path.dirname(destination), { recursive: true });
       fs.copyFileSync(prepared, destination);
     }
-    for (const result of [basePrepare, responsePrepare, navigationPrepare, supervisorPrepare, watchdogPrepare]) {
+    for (const result of [basePrepare, responsePrepare, navigationPrepare, navigationSecurityPrepare, supervisorPrepare, watchdogPrepare]) {
       const output = [result?.stdout, result?.stderr].filter(Boolean).join('\n').trim();
       if (output) console.log(output);
     }
