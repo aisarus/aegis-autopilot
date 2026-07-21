@@ -17,7 +17,8 @@ const helperFiles = [
   'scripts/prepare-testing-source.js',
   'scripts/prepare-autopilot-response.js',
   'scripts/prepare-navigation-settle.js',
-  'scripts/prepare-supervisor-auto-execution.js'
+  'scripts/prepare-supervisor-auto-execution.js',
+  'scripts/prepare-watchdog-survival.js'
 ];
 
 function copyIntoTemp(relativePath) {
@@ -73,6 +74,9 @@ try {
   const supervisorPrepare = process.exitCode
     ? null
     : runHelper('scripts/prepare-supervisor-auto-execution.js', 'supervisor auto-execution preparation');
+  const watchdogPrepare = process.exitCode
+    ? null
+    : runHelper('scripts/prepare-watchdog-survival.js', 'watchdog survival preparation');
 
   if (!process.exitCode) {
     for (const relativePath of ['main.js', 'chatgpt-preload.js', 'preload.js', 'lib/supervisor-policy.js', 'renderer/app.js']) {
@@ -96,7 +100,7 @@ try {
       fs.mkdirSync(path.dirname(destination), { recursive: true });
       fs.copyFileSync(prepared, destination);
     }
-    for (const result of [basePrepare, responsePrepare, navigationPrepare, supervisorPrepare]) {
+    for (const result of [basePrepare, responsePrepare, navigationPrepare, supervisorPrepare, watchdogPrepare]) {
       const output = [result?.stdout, result?.stderr].filter(Boolean).join('\n').trim();
       if (output) console.log(output);
     }
