@@ -44,11 +44,14 @@ assert(!pendingDecisionMatches({ decision: bound, currentResponseHash: 'hash-1',
 assert(!pendingDecisionMatches({ decision: { createdAt }, currentResponseHash: 'hash-1', nowMs }), 'unbound legacy decision was accepted');
 
 assert(main.includes("require('./lib/supervisor-policy')"), 'main does not use the tested policy module');
-assert(main.includes('decision.sourceResponseHash = responseHash(state.browser.messages);'), 'decisions are not bound to the source response');
+assert(main.includes('const sourceResponseHash = responseHash(state.browser.messages);'), 'source response hash is not captured before Gemini returns');
+assert(main.includes('decision.sourceResponseHash = sourceResponseHash;'), 'decision is not bound to the pre-request response snapshot');
+assert(!main.includes('decision.sourceResponseHash = responseHash(state.browser.messages);'), 'decision is still bound after Gemini returns');
 assert(main.includes('pendingDecisionMatchesCurrentResponse(decision, target)'), 'execution boundary does not reject stale decisions');
 assert(main.includes('invalidatePendingDecisionForRescan'), 'stale pending decisions are not invalidated for a fresh scan');
 assert(main.includes("state.queue.push(item);"), 'enqueue decision no longer creates a queue item');
 assert(main.includes("const BUILD_ID = String(process.env.AEGIS_BUILD_SHA || 'development').trim();"), 'exact build id is not exposed');
 assert(main.includes('view.buildId = BUILD_ID;'), 'exact build id is not published to the UI');
+assert(main.includes('aegis: { version: app.getVersion(), buildId: BUILD_ID'), 'copied diagnostics do not identify the exact build');
 
 console.log('supervisor auto-execution behavioral smoke test: OK');
