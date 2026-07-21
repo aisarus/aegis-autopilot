@@ -33,7 +33,9 @@ The checked-in testing source is prepared transactionally before every supported
 - `npm run dist:win`
 - `npm run pack:win`
 
-The development watcher restarts through `npm run dev:once`; it must never launch `electron` or `npx electron` directly. `doctor:prepared` and `test:prepared` are internal building blocks used only after `source:prepare`; do not invoke them directly from a clean checkout. Windows build commands run the full verification gate before invoking `electron-builder`. Do not invoke `electron .`, `npx electron .` or `electron-builder` directly from a clean checkout because that bypasses preparation guards.
+The development command prepares source before registering file watchers. Every later watcher restart goes through `npm run dev:once`; it must never launch `electron` or `npx electron` directly. Transactional preparation writes a checkout file only when the prepared bytes differ, so an idempotent pass reports zero updated files and must not trigger another watched restart.
+
+`doctor:prepared` and `test:prepared` are internal building blocks used only after `source:prepare`; do not invoke them directly from a clean checkout. Windows build commands run the full verification gate before invoking `electron-builder`. Do not invoke `electron .`, `npx electron .` or `electron-builder` directly from a clean checkout because that bypasses preparation guards.
 
 ## Debug workflow
 
@@ -65,6 +67,7 @@ Every push to `testing` or `main` and every pull request runs Windows CI with No
 - prepared-source doctor checks
 - JavaScript syntax checks
 - the full prepared smoke suite
+- an idempotence check proving a second preparation performs zero checkout writes
 - a debug artifact on failure
 
 A red CI build must not be offered for user testing.
