@@ -10,6 +10,8 @@ const renderer = fs.readFileSync('renderer/app.js', 'utf8');
 const html = fs.readFileSync('renderer/index.html', 'utf8');
 const updater = fs.readFileSync('AEGIS-UPDATE-AND-RUN.cmd', 'utf8');
 const collector = fs.readFileSync('AEGIS-COLLECT-DEBUG.cmd', 'utf8');
+const devCommand = fs.readFileSync('dev.cmd', 'utf8');
+const devWatch = fs.readFileSync('scripts/dev-watch.ps1', 'utf8');
 const prepare = fs.readFileSync('scripts/prepare-testing-source.js', 'utf8');
 const atomicPrepare = fs.readFileSync('scripts/prepare-testing-source-atomic.js', 'utf8');
 const doctor = fs.readFileSync('scripts/doctor.js', 'utf8');
@@ -29,6 +31,9 @@ assert.strictEqual(pkg.scripts.predev, 'npm run source:prepare', 'npm run dev mu
 assert.strictEqual(pkg.scripts['predev:once'], 'npm run source:prepare', 'npm run dev:once must not bypass source preparation');
 assert.strictEqual(pkg.scripts['predist:win'], 'npm run verify', 'Windows installer builds must verify and prepare source first');
 assert.strictEqual(pkg.scripts['prepack:win'], 'npm run verify', 'Windows directory builds must verify and prepare source first');
+assert(devCommand.includes('npm.cmd ci'), 'dev.cmd must install locked dependencies');
+assert(devWatch.includes('npm.cmd run dev:once'), 'dev watch must restart through the prepared npm entrypoint');
+assert(!devWatch.includes('npx electron .'), 'dev watch must not launch raw Electron directly');
 assert(prepare.includes('expected source anchor was not found'), 'source preparation must fail with a named missing anchor');
 assert(prepare.includes('source anchor is ambiguous'), 'source preparation must reject ambiguous replacements');
 assert(atomicPrepare.includes('mkdtempSync'), 'transactional wrapper must use an isolated temporary checkout');
