@@ -15,6 +15,8 @@ if not exist node_modules (
   echo [Aegis] Installing locked dependencies...
   call npm.cmd ci || goto :error
 )
+echo [Aegis] Preparing source before the watcher starts...
+call npm.cmd run source:prepare || goto :error
 powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\dev-watch.ps1"
 exit /b %errorlevel%
 :error
