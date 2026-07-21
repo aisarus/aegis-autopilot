@@ -6,9 +6,12 @@
   "private": true,
   "scripts": {
     "source:prepare": "node scripts/prepare-testing-source-atomic.js",
-    "doctor": "node scripts/doctor.js",
+    "doctor:prepared": "node scripts/doctor.js",
+    "doctor": "npm run source:prepare && npm run doctor:prepared",
     "debug:bundle": "node scripts/create-debug-bundle.js",
-    "verify": "npm run source:prepare && npm run doctor && npm test",
+    "test:prepared": "node tests/multi-chat-smoke.js && node tests/autopilot-resilience-smoke.js && node tests/send-contract-smoke.js && node tests/composer-first-readiness-smoke.js && node tests/no-reload-loop-smoke.js && node tests/budget-guard-smoke.js && node tests/minimal-three-project-smoke.js && node tests/chat-identity-draft-smoke.js && node tests/send-transaction-smoke.js && node tests/own-draft-retry-smoke.js && node tests/production-workflow-smoke.js && node tests/autopilot-response-detection-smoke.js && node tests/navigation-settle-smoke.js && node tests/supervisor-auto-execution-smoke.js && node tests/watchdog-survival-smoke.js && node tests/navigation-security-smoke.js",
+    "test": "npm run source:prepare && npm run test:prepared",
+    "verify": "npm run source:prepare && npm run doctor:prepared && npm run test:prepared",
     "prestart": "npm run source:prepare && node scripts/stop-old-aegis.js",
     "start": "electron .",
     "predev": "npm run source:prepare",
@@ -18,8 +21,7 @@
     "predist:win": "npm run verify",
     "dist:win": "electron-builder --win nsis",
     "prepack:win": "npm run verify",
-    "pack:win": "electron-builder --win dir",
-    "test": "node tests/multi-chat-smoke.js && node tests/autopilot-resilience-smoke.js && node tests/send-contract-smoke.js && node tests/composer-first-readiness-smoke.js && node tests/no-reload-loop-smoke.js && node tests/budget-guard-smoke.js && node tests/minimal-three-project-smoke.js && node tests/chat-identity-draft-smoke.js && node tests/send-transaction-smoke.js && node tests/own-draft-retry-smoke.js && node tests/production-workflow-smoke.js && node tests/autopilot-response-detection-smoke.js && node tests/navigation-settle-smoke.js && node tests/supervisor-auto-execution-smoke.js && node tests/watchdog-survival-smoke.js && node tests/navigation-security-smoke.js"
+    "pack:win": "electron-builder --win dir"
   },
   "dependencies": {
     "@google/genai": "^2.12.0",
