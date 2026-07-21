@@ -79,10 +79,18 @@ replaceOnce(
 
 replaceOnce(
   'main.js',
+  'capture source response before Gemini request',
+  "    const apiKey = await readGeminiKey();\n    const input = [{ type: 'text', text: supervisorInstruction(supervisorContext(active, trigger, typedCommand)) }];",
+  "    const apiKey = await readGeminiKey();\n    const sourceResponseHash = responseHash(state.browser.messages);\n    const input = [{ type: 'text', text: supervisorInstruction(supervisorContext(active, trigger, typedCommand)) }];",
+  'const sourceResponseHash = responseHash(state.browser.messages);'
+);
+
+replaceOnce(
+  'main.js',
   'bind decision to source response',
   '    decision.sourceChatId = active.id;\n    state.supervisor.pendingDecision = decision;',
-  '    decision.sourceChatId = active.id;\n    decision.sourceResponseHash = responseHash(state.browser.messages);\n    state.supervisor.pendingDecision = decision;',
-  'decision.sourceResponseHash = responseHash(state.browser.messages);'
+  '    decision.sourceChatId = active.id;\n    decision.sourceResponseHash = sourceResponseHash;\n    state.supervisor.pendingDecision = decision;',
+  'decision.sourceResponseHash = sourceResponseHash;'
 );
 
 replaceOnce(
