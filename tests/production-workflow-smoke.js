@@ -32,12 +32,14 @@ assert.strictEqual(pkg.scripts['predev:once'], 'npm run source:prepare', 'npm ru
 assert.strictEqual(pkg.scripts['predist:win'], 'npm run verify', 'Windows installer builds must verify and prepare source first');
 assert.strictEqual(pkg.scripts['prepack:win'], 'npm run verify', 'Windows directory builds must verify and prepare source first');
 assert(devCommand.includes('npm.cmd ci'), 'dev.cmd must install locked dependencies');
+assert(devCommand.includes('npm.cmd run source:prepare'), 'dev.cmd must prepare source before file watchers are registered');
 assert(devWatch.includes('npm.cmd run dev:once'), 'dev watch must restart through the prepared npm entrypoint');
 assert(!devWatch.includes('npx electron .'), 'dev watch must not launch raw Electron directly');
 assert(prepare.includes('expected source anchor was not found'), 'source preparation must fail with a named missing anchor');
 assert(prepare.includes('source anchor is ambiguous'), 'source preparation must reject ambiguous replacements');
 assert(atomicPrepare.includes('mkdtempSync'), 'transactional wrapper must use an isolated temporary checkout');
 assert(atomicPrepare.includes('checkout was not modified'), 'transactional wrapper must report safe aborts');
+assert(atomicPrepare.includes('current.equals(prepared)'), 'transactional wrapper must not rewrite identical prepared files');
 assert(main.includes("ipcMain.handle('aegis:test-send'"), 'main process must expose isolated send test');
 assert(main.includes("ipcMain.handle('aegis-chat:native-editor'"), 'main process must expose native editor bridge');
 assert(main.includes("kind: 'AEGIS_SEND_TEST'"), 'send test must produce a typed diagnostic report');
@@ -52,7 +54,14 @@ assert(!collector.includes('patch:current'), 'debug collection must never modify
 assert(doctor.includes('[Aegis doctor] OK'), 'local doctor must remain available');
 assert(bundle.includes('# Aegis debug bundle'), 'debug bundle generator must remain available');
 
+const preparedFiles = ['main.js', 'chatgpt-preload.js', 'preload.js', 'lib/supervisor-policy.js', 'lib/navigation-policy.js', 'renderer/index.html', 'renderer/app.js'];
+const mtimesBefore = new Map(preparedFiles.map((file) => [file, fs.statSync(file, { bigint: true }).mtimeNs]));
+Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, 100);
 const secondPass = spawnSync(process.execPath, ['scripts/prepare-testing-source-atomic.js'], { encoding: 'utf8', windowsHide: true });
 assert.strictEqual(secondPass.status, 0, `transactional preparation must be idempotent:\n${secondPass.stdout || ''}\n${secondPass.stderr || ''}`);
+assert.match(secondPass.stdout || '', /0 file\(s\) updated/, 'idempotent preparation must report zero checkout writes');
+for (const file of preparedFiles) {
+  assert.strictEqual(fs.statSync(file, { bigint: true }).mtimeNs, mtimesBefore.get(file), `idempotent preparation rewrote ${file}`);
+}
 
 console.log('production workflow smoke test: OK');

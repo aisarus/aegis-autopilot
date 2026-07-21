@@ -30,6 +30,17 @@ function copyIntoTemp(relativePath) {
   fs.copyFileSync(source, target);
 }
 
+function copyPreparedIfChanged(relativePath) {
+  const preparedPath = path.join(tempDir, relativePath);
+  const destinationPath = path.join(repoDir, relativePath);
+  const prepared = fs.readFileSync(preparedPath);
+  const current = fs.existsSync(destinationPath) ? fs.readFileSync(destinationPath) : null;
+  if (current && current.equals(prepared)) return false;
+  fs.mkdirSync(path.dirname(destinationPath), { recursive: true });
+  fs.copyFileSync(preparedPath, destinationPath);
+  return true;
+}
+
 function normalizeKnownSourceFormatting() {
   const rendererPath = path.join(tempDir, 'renderer/app.js');
   const source = fs.readFileSync(rendererPath, 'utf8');
@@ -99,17 +110,12 @@ try {
   }
 
   if (!process.exitCode) {
-    for (const relativePath of sourceFiles) {
-      const prepared = path.join(tempDir, relativePath);
-      const destination = path.join(repoDir, relativePath);
-      fs.mkdirSync(path.dirname(destination), { recursive: true });
-      fs.copyFileSync(prepared, destination);
-    }
+    const changedFiles = sourceFiles.filter(copyPreparedIfChanged);
     for (const result of [basePrepare, responsePrepare, navigationPrepare, navigationSecurityPrepare, supervisorPrepare, watchdogPrepare]) {
       const output = [result?.stdout, result?.stderr].filter(Boolean).join('\n').trim();
       if (output) console.log(output);
     }
-    console.log('[Aegis prepare] transaction committed');
+    console.log(`[Aegis prepare] transaction committed; ${changedFiles.length} file(s) updated`);
   }
 } finally {
   fs.rmSync(tempDir, { recursive: true, force: true });
