@@ -22,6 +22,8 @@ Every testing commit must be reproducible from one clean checkout and diagnosabl
 
 The checked-in testing source is prepared transactionally before every supported public runtime, check or packaging path:
 
+- `AEGIS-UPDATE-AND-RUN.cmd`
+- `dev.cmd` for watched development restarts
 - `npm start`
 - `npm run dev`
 - `npm run dev:once`
@@ -31,7 +33,7 @@ The checked-in testing source is prepared transactionally before every supported
 - `npm run dist:win`
 - `npm run pack:win`
 
-`doctor:prepared` and `test:prepared` are internal building blocks used only after `source:prepare`; do not invoke them directly from a clean checkout. Windows build commands run the full verification gate before invoking `electron-builder`. Do not invoke `electron .` or `electron-builder` directly from a clean checkout because that bypasses npm script guards.
+The development watcher restarts through `npm run dev:once`; it must never launch `electron` or `npx electron` directly. `doctor:prepared` and `test:prepared` are internal building blocks used only after `source:prepare`; do not invoke them directly from a clean checkout. Windows build commands run the full verification gate before invoking `electron-builder`. Do not invoke `electron .`, `npx electron .` or `electron-builder` directly from a clean checkout because that bypasses preparation guards.
 
 ## Debug workflow
 
@@ -90,6 +92,6 @@ A fix is not done because code was changed. It is done only when:
 
 ## Versioning
 
-- Patch version increases for every user-testable build.
+- Patch version increases before a testing commit is offered as a new user acceptance candidate.
 - The runtime exposes both the semantic version and exact Git commit.
 - Diagnostic reports must include both values.
