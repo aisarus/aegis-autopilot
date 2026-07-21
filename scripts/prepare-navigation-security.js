@@ -5,13 +5,6 @@ const mainPath = path.resolve(__dirname, '..', 'main.js');
 let source = fs.readFileSync(mainPath, 'utf8');
 const before = source;
 
-const importLine = "const { isAllowedExternalNavigation, isAllowedInternalNavigation } = require('./lib/navigation-policy');";
-if (!source.includes(importLine)) {
-  const anchor = "const { GoogleGenAI } = require('@google/genai');";
-  if (!source.includes(anchor)) throw new Error('[navigation security prepare] import anchor not found');
-  source = source.replace(anchor, `${anchor}\n${importLine}`);
-}
-
 const startMarker = 'function layoutAndSecurity() {';
 const endMarker = 'function createWindow() {';
 const start = source.indexOf(startMarker);
@@ -19,6 +12,7 @@ const end = source.indexOf(endMarker, start + startMarker.length);
 if (start < 0 || end < 0) throw new Error('[navigation security prepare] layoutAndSecurity boundary not found');
 
 const replacement = `function layoutAndSecurity() {
+  const { isAllowedExternalNavigation, isAllowedInternalNavigation } = require('./lib/navigation-policy');
   resizeViews();
   mainWindow.on('resize', resizeViews);
   const openExternalSafely = (url) => {
