@@ -12,11 +12,12 @@ Every testing commit must be reproducible from one clean checkout and diagnosabl
 
 ## User workflow
 
-1. Keep one cloned repository folder.
+1. Keep one dedicated cloned repository folder. Do not store personal files inside it unless their paths are explicitly ignored by Git.
 2. Run `AEGIS-UPDATE-AND-RUN.cmd`.
-3. The button resets the folder to `origin/testing`, runs `npm ci`, prepares the source, runs the doctor and smoke tests, then starts the exact commit.
-4. Never launch the installed desktop shortcut while testing. The runner closes stale installed and development processes before launch.
-5. The Aegis status panel shows the exact build id.
+3. The button resets tracked files to `origin/testing`, removes untracked non-ignored files, verifies that the worktree is clean, runs `npm ci`, prepares the source, runs the doctor and smoke tests, then starts the exact commit.
+4. The synchronization step is intentionally destructive: tracked edits and untracked non-ignored files are discarded. Ignored local files such as `.env` are preserved.
+5. Never launch the installed desktop shortcut while testing. The runner closes stale installed and development processes before launch.
+6. The Aegis status panel shows the exact build id.
 
 ## Supported launch, check and build entrypoints
 
@@ -68,6 +69,7 @@ Every push to `testing` or `main` and every pull request runs Windows CI with No
 - JavaScript syntax checks
 - the full prepared smoke suite
 - an idempotence check proving a second preparation performs zero checkout writes
+- a clean-worktree fixture proving stale untracked runtime files are removed while ignored local files remain
 - package and lockfile version equality
 - a direct-source version newer than the legacy runtime floor while that legacy marker exists
 - a debug artifact on failure

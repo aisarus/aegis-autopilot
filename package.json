@@ -1,6 +1,6 @@
 {
   "name": "aegis-chatgpt-client",
-  "version": "1.2.20",
+  "version": "1.2.21",
   "description": "Direct-source ChatGPT autopilot with transactional testing source preparation",
   "main": "main.js",
   "private": true,

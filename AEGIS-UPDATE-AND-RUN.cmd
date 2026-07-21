@@ -32,32 +32,40 @@ echo.
 echo ========================================
 echo   AEGIS - UPDATE, VERIFY AND RUN
 echo ========================================
-echo [1/6] Downloading the latest testing code...
+echo [1/7] Downloading the latest testing code...
 git fetch origin testing
 if errorlevel 1 goto :error
 
-echo [2/6] Synchronizing this folder with origin/testing...
+echo [2/7] Synchronizing tracked files with origin/testing...
 git checkout -B testing origin/testing
 if errorlevel 1 goto :error
 git reset --hard origin/testing
 if errorlevel 1 goto :error
 
+echo [3/7] Removing stale untracked repository files...
+git clean -fd -- .
+if errorlevel 1 goto :error
+for /f "delims=" %%S in ('git status --porcelain --untracked-files^=normal') do (
+  echo [Aegis] Worktree is not clean after synchronization: %%S
+  goto :error
+)
+
 for /f %%I in ('git rev-parse --short=12 HEAD') do set "AEGIS_BUILD_SHA=%%I+testing"
 echo [Aegis] Exact build: %AEGIS_BUILD_SHA%
 
-echo [3/6] Installing the locked dependencies...
+echo [4/7] Installing the locked dependencies...
 call npm.cmd ci
 if errorlevel 1 goto :error
 
-echo [4/6] Preparing and verifying the source...
+echo [5/7] Preparing and verifying the source...
 call npm.cmd run verify
 if errorlevel 1 goto :error
 
-echo [5/6] Verification passed.
+echo [6/7] Verification passed.
 echo [Aegis] Source folder: %REPO%
 echo [Aegis] Build: %AEGIS_BUILD_SHA%
 
-echo [6/6] Starting Aegis...
+echo [7/7] Starting Aegis...
 echo.
 call npm.cmd start
 exit /b %ERRORLEVEL%
