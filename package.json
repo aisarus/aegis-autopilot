@@ -39,6 +39,7 @@
       "preload.js",
       "chatgpt-preload.js",
       "adapters/**/*",
+      "lib/**/*",
       "renderer/**/*",
       "package.json",
       "node_modules/**/*"
