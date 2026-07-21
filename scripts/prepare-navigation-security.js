@@ -47,7 +47,7 @@ const replacement = `function layoutAndSecurity() {
 
 source = `${source.slice(0, start)}${replacement}${source.slice(end)}`;
 
-if (/accounts\\\.google\\\.com\$/.test(source) || source.includes("shell.openExternal(url).catch(() => {})")) {
+if (source.includes('accounts\\.google\\.com$') || source.includes("shell.openExternal(url).catch(() => {})")) {
   throw new Error('[navigation security prepare] unsafe navigation implementation remains');
 }
 
