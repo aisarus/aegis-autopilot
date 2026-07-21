@@ -23,22 +23,29 @@ const replacement = `function layoutAndSecurity() {
     }
     shell.openExternal(url).catch((error) => {
       const failure = compact(error?.code || error?.name || 'unknown error', 100);
-      writeLog('warn', 'External URL open failed', `${logLabel} | ${failure}`);
+      writeLog('warn', 'External URL open failed', \\`${logLabel} | \\${failure}\\`);
     });
   };
-  chatView.webContents.setWindowOpenHandler(({ url }) => {
-    if (isAllowedInternalNavigation(url)) {
-      return { action: 'allow', overrideBrowserWindowOptions: { webPreferences: { partition: 'persist:aegis-chatgpt', nodeIntegration: false, contextIsolation: true, sandbox: true } } };
-    }
-    openExternalSafely(url);
-    return { action: 'deny' };
-  });
-  chatView.webContents.on('will-navigate', (event, url) => {
-    if (!isAllowedInternalNavigation(url)) {
-      event.preventDefault();
+  const attachNavigationPolicy = (contents) => {
+    if (!contents || contents.isDestroyed?.()) return;
+    contents.setWindowOpenHandler(({ url }) => {
+      if (isAllowedInternalNavigation(url)) {
+        return { action: 'allow', overrideBrowserWindowOptions: { webPreferences: { partition: 'persist:aegis-chatgpt', nodeIntegration: false, contextIsolation: true, sandbox: true } } };
+      }
       openExternalSafely(url);
-    }
-  });
+      return { action: 'deny' };
+    });
+    const guardNavigation = (event, url) => {
+      if (!isAllowedInternalNavigation(url)) {
+        event.preventDefault();
+        openExternalSafely(url);
+      }
+    };
+    contents.on('will-navigate', guardNavigation);
+    contents.on('will-redirect', guardNavigation);
+    contents.on('did-create-window', (window) => attachNavigationPolicy(window?.webContents));
+  };
+  attachNavigationPolicy(chatView.webContents);
 }
 
 `;
@@ -50,4 +57,4 @@ if (source.includes('accounts\\.google\\.com$') || source.includes("shell.openEx
 }
 
 if (source !== before) fs.writeFileSync(mainPath, source, 'utf8');
-console.log(source === before ? '[Aegis navigation security prepare] already present' : '[Aegis navigation security prepare] strict host, protocol and diagnostic-redaction policy applied');
+console.log(source === before ? '[Aegis navigation security prepare] already present' : '[Aegis navigation security prepare] strict host, redirect, popup and diagnostic-redaction policy applied');
