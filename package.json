@@ -13,10 +13,13 @@
     "start": "electron .",
     "predev": "npm run source:prepare",
     "dev": "electron .",
-    "test": "node tests/multi-chat-smoke.js && node tests/autopilot-resilience-smoke.js && node tests/send-contract-smoke.js && node tests/composer-first-readiness-smoke.js && node tests/no-reload-loop-smoke.js && node tests/budget-guard-smoke.js && node tests/minimal-three-project-smoke.js && node tests/chat-identity-draft-smoke.js && node tests/send-transaction-smoke.js && node tests/own-draft-retry-smoke.js && node tests/production-workflow-smoke.js && node tests/autopilot-response-detection-smoke.js && node tests/navigation-settle-smoke.js && node tests/supervisor-auto-execution-smoke.js && node tests/watchdog-survival-smoke.js && node tests/navigation-security-smoke.js",
+    "predev:once": "npm run source:prepare",
+    "dev:once": "electron .",
+    "predist:win": "npm run verify",
     "dist:win": "electron-builder --win nsis",
+    "prepack:win": "npm run verify",
     "pack:win": "electron-builder --win dir",
-    "dev:once": "electron ."
+    "test": "node tests/multi-chat-smoke.js && node tests/autopilot-resilience-smoke.js && node tests/send-contract-smoke.js && node tests/composer-first-readiness-smoke.js && node tests/no-reload-loop-smoke.js && node tests/budget-guard-smoke.js && node tests/minimal-three-project-smoke.js && node tests/chat-identity-draft-smoke.js && node tests/send-transaction-smoke.js && node tests/own-draft-retry-smoke.js && node tests/production-workflow-smoke.js && node tests/autopilot-response-detection-smoke.js && node tests/navigation-settle-smoke.js && node tests/supervisor-auto-execution-smoke.js && node tests/watchdog-survival-smoke.js && node tests/navigation-security-smoke.js"
   },
   "dependencies": {
     "@google/genai": "^2.12.0",
