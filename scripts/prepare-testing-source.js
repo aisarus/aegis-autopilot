@@ -51,6 +51,14 @@ replaceOnce(
 
 replaceOnce(
   'main.js',
+  'copy exact build id in diagnostics',
+  "    aegis: { version: app.getVersion(), platform: process.platform, arch: process.arch },",
+  "    aegis: { version: app.getVersion(), buildId: BUILD_ID, platform: process.platform, arch: process.arch },",
+  'aegis: { version: app.getVersion(), buildId: BUILD_ID'
+);
+
+replaceOnce(
+  'main.js',
   'native ChatGPT editor bridge',
   "  ipcMain.handle('aegis:get-state', () => publicState());",
   `  ipcMain.handle('aegis-chat:native-editor', async (event, input = {}) => {\n    if (!chatView || event.sender !== chatView.webContents || event.sender.isDestroyed()) {\n      return { ok: false, error: 'Встроенный ChatGPT недоступен для нативного ввода.' };\n    }\n    const action = compact(input?.action, 40);\n    try {\n      chatView.webContents.focus();\n      if (action === 'insert-text') {\n        const text = String(input?.text || '');\n        if (!text) return { ok: false, error: 'Нативный ввод получил пустой текст.' };\n        if (typeof chatView.webContents.insertText !== 'function') {\n          return { ok: false, error: 'Electron webContents.insertText недоступен.' };\n        }\n        await Promise.resolve(chatView.webContents.insertText(text));\n        return { ok: true, action, chars: text.length };\n      }\n      if (action === 'press-enter') {\n        chatView.webContents.sendInputEvent({ type: 'keyDown', keyCode: 'Enter' });\n        chatView.webContents.sendInputEvent({ type: 'keyUp', keyCode: 'Enter' });\n        return { ok: true, action };\n      }\n      return { ok: false, error: \`Неизвестное нативное действие редактора: \${action || 'empty'}\` };\n    } catch (error) {\n      writeLog('warn', 'Native ChatGPT editor action failed', \`\${action}: \${error?.message || error}\`);\n      return { ok: false, error: compact(error?.message || error, 500) };\n    }\n  });\n\n  ipcMain.handle('aegis:get-state', () => publicState());`,
@@ -100,7 +108,7 @@ replaceOnce(
 replaceOnce(
   'chatgpt-preload.js',
   'native editor preload helper',
-  'function dispatchInputLikeUser(element, text, inputType = \'insertText\') {',
+  "function dispatchInputLikeUser(element, text, inputType = 'insertText') {",
   `async function nativeEditor(action, payload = {}) {\n  try {\n    const result = await ipcRenderer.invoke('aegis-chat:native-editor', { action, ...payload });\n    return result && typeof result === 'object' ? result : { ok: false, error: 'Пустой ответ нативного редактора.' };\n  } catch (error) {\n    return { ok: false, error: cleanText(error?.message || error, 500) };\n  }\n}\n\nfunction dispatchInputLikeUser(element, text, inputType = 'insertText') {`,
   'async function nativeEditor(action, payload = {})'
 );
@@ -164,7 +172,7 @@ replaceOnce(
 replaceOnce(
   'chatgpt-preload.js',
   'native retry enter',
-  "        pressEnterToSend(composer);\n        method = `${method}+enter`;",
+  "        pressEnterToSend(composer);\n        method = \`${method}+enter\`;",
   `        composer.focus();\n        const nativeRetry = await nativeEditor('press-enter');\n        if (!nativeRetry?.ok) pressEnterToSend(composer);\n        method = \`\${method}+\${nativeRetry?.ok ? 'native-enter' : 'enter'}\`;`,
   "const nativeRetry = await nativeEditor('press-enter');"
 );
@@ -174,7 +182,7 @@ replaceOnce(
   'expose send test bridge',
   "  checkAllAutopilots: () => ipcRenderer.invoke('aegis:check-all-autopilots'),",
   "  checkAllAutopilots: () => ipcRenderer.invoke('aegis:check-all-autopilots'),\n  testSend: () => ipcRenderer.invoke('aegis:test-send'),",
-  '  testSend: () => ipcRenderer.invoke(\'aegis:test-send\'),'
+  "  testSend: () => ipcRenderer.invoke('aegis:test-send'),"
 );
 
 replaceOnce(
