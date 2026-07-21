@@ -1,4 +1,6 @@
 const fs = require('fs');
+const os = require('os');
+const path = require('path');
 const assert = require('assert');
 const { spawnSync } = require('child_process');
 
@@ -73,9 +75,32 @@ assert(html.includes('id="test-send"'), 'control panel must show the test-send b
 assert(renderer.includes("call('testSend')"), 'test-send button must invoke the isolated harness');
 assert(updater.includes('npm.cmd ci'), 'one-click updater must install from the lockfile');
 assert(updater.includes('npm.cmd run verify'), 'one-click updater must pass the full verification gate');
+const resetIndex = updater.indexOf('git reset --hard origin/testing');
+const cleanIndex = updater.indexOf('git clean -fd -- .');
+const cleanlinessCheckIndex = updater.indexOf('git status --porcelain --untracked-files^=normal');
+assert(resetIndex >= 0, 'one-click updater must hard-reset tracked files');
+assert(cleanIndex > resetIndex, 'one-click updater must remove untracked non-ignored files after reset');
+assert(cleanlinessCheckIndex > cleanIndex, 'one-click updater must verify the worktree is clean after removing stale files');
+assert(!updater.includes('git clean -fdx'), 'one-click updater must preserve ignored local files such as .env');
 assert(!collector.includes('patch:current'), 'debug collection must never modify or prepare the checkout');
 assert(doctor.includes('[Aegis doctor] OK'), 'local doctor must remain available');
 assert(bundle.includes('# Aegis debug bundle'), 'debug bundle generator must remain available');
+
+const cleanFixture = fs.mkdtempSync(path.join(os.tmpdir(), 'aegis-clean-fixture-'));
+try {
+  assert.strictEqual(spawnSync('git', ['init'], { cwd: cleanFixture, encoding: 'utf8', windowsHide: true }).status, 0, 'clean fixture git init failed');
+  fs.writeFileSync(path.join(cleanFixture, '.gitignore'), 'preserved.env\n', 'utf8');
+  assert.strictEqual(spawnSync('git', ['add', '.gitignore'], { cwd: cleanFixture, encoding: 'utf8', windowsHide: true }).status, 0, 'clean fixture git add failed');
+  fs.mkdirSync(path.join(cleanFixture, 'lib'), { recursive: true });
+  fs.writeFileSync(path.join(cleanFixture, 'lib', 'stale-runtime.js'), 'stale', 'utf8');
+  fs.writeFileSync(path.join(cleanFixture, 'preserved.env'), 'local secret placeholder', 'utf8');
+  const cleaned = spawnSync('git', ['clean', '-fd', '--', '.'], { cwd: cleanFixture, encoding: 'utf8', windowsHide: true });
+  assert.strictEqual(cleaned.status, 0, `git clean fixture failed:\n${cleaned.stdout || ''}\n${cleaned.stderr || ''}`);
+  assert(!fs.existsSync(path.join(cleanFixture, 'lib', 'stale-runtime.js')), 'git clean must remove stale untracked runtime files');
+  assert(fs.existsSync(path.join(cleanFixture, 'preserved.env')), 'git clean without -x must preserve ignored local files');
+} finally {
+  fs.rmSync(cleanFixture, { recursive: true, force: true });
+}
 
 const preparedFiles = ['main.js', 'chatgpt-preload.js', 'preload.js', 'lib/supervisor-policy.js', 'lib/navigation-policy.js', 'renderer/index.html', 'renderer/app.js'];
 const mtimesBefore = new Map(preparedFiles.map((file) => [file, fs.statSync(file, { bigint: true }).mtimeNs]));
