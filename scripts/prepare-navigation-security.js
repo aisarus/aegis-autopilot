@@ -23,7 +23,7 @@ const replacement = `function layoutAndSecurity() {
     }
     shell.openExternal(url).catch((error) => {
       const failure = compact(error?.code || error?.name || 'unknown error', 100);
-      writeLog('warn', 'External URL open failed', \\`${logLabel} | \\${failure}\\`);
+      writeLog('warn', 'External URL open failed', logLabel + ' | ' + failure);
     });
   };
   const attachNavigationPolicy = (contents) => {
