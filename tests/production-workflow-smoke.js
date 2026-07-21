@@ -2,7 +2,24 @@ const fs = require('fs');
 const assert = require('assert');
 const { spawnSync } = require('child_process');
 
+function parseVersion(value) {
+  const match = /^(\d+)\.(\d+)\.(\d+)$/.exec(String(value || '').trim());
+  return match ? match.slice(1).map(Number) : null;
+}
+
+function compareVersions(left, right) {
+  const a = parseVersion(left);
+  const b = parseVersion(right);
+  assert(a, `invalid package version: ${left}`);
+  assert(b, `invalid comparison version: ${right}`);
+  for (let index = 0; index < 3; index += 1) {
+    if (a[index] !== b[index]) return a[index] > b[index] ? 1 : -1;
+  }
+  return 0;
+}
+
 const pkg = JSON.parse(fs.readFileSync('package.json', 'utf8'));
+const lock = JSON.parse(fs.readFileSync('package-lock.json', 'utf8'));
 const main = fs.readFileSync('main.js', 'utf8');
 const chatPreload = fs.readFileSync('chatgpt-preload.js', 'utf8');
 const preload = fs.readFileSync('preload.js', 'utf8');
@@ -17,6 +34,12 @@ const atomicPrepare = fs.readFileSync('scripts/prepare-testing-source-atomic.js'
 const doctor = fs.readFileSync('scripts/doctor.js', 'utf8');
 const bundle = fs.readFileSync('scripts/create-debug-bundle.js', 'utf8');
 
+assert.strictEqual(pkg.version, lock.packages?.['']?.version || lock.version, 'package and lockfile versions must match');
+const legacyVersionPath = 'patches/runtime-version.txt';
+if (fs.existsSync(legacyVersionPath)) {
+  const legacyVersion = fs.readFileSync(legacyVersionPath, 'utf8').trim();
+  assert(compareVersions(pkg.version, legacyVersion) > 0, `direct-source version ${pkg.version} must be newer than legacy runtime ${legacyVersion}`);
+}
 assert(!pkg.scripts.prepare, 'npm lifecycle hook prepare must stay unused');
 assert(!pkg.scripts['patch:current'], 'legacy patch:current script must be removed');
 assert(!pkg.scripts['patch:check'], 'legacy patch:check script must be removed');
