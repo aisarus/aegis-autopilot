@@ -35,6 +35,8 @@ const prepare = fs.readFileSync('scripts/prepare-testing-source.js', 'utf8');
 const atomicPrepare = fs.readFileSync('scripts/prepare-testing-source-atomic.js', 'utf8');
 const doctor = fs.readFileSync('scripts/doctor.js', 'utf8');
 const bundle = fs.readFileSync('scripts/create-debug-bundle.js', 'utf8');
+const runtimePathspecs = ['main.js', 'preload.js', 'chatgpt-preload.js', 'package.json', 'package-lock.json', 'adapters', 'lib', 'renderer'];
+const runtimePathspecText = runtimePathspecs.join(' ');
 
 assert.strictEqual(pkg.version, lock.packages?.['']?.version || lock.version, 'package and lockfile versions must match');
 const legacyVersionPath = 'patches/runtime-version.txt';
@@ -76,11 +78,14 @@ assert(renderer.includes("call('testSend')"), 'test-send button must invoke the 
 assert(updater.includes('npm.cmd ci'), 'one-click updater must install from the lockfile');
 assert(updater.includes('npm.cmd run verify'), 'one-click updater must pass the full verification gate');
 const resetIndex = updater.indexOf('git reset --hard origin/testing');
-const cleanIndex = updater.indexOf('git clean -fd -- .');
-const cleanlinessCheckIndex = updater.indexOf('git status --porcelain --untracked-files^=normal');
+const cleanCommand = `git clean -fd -- ${runtimePathspecText}`;
+const statusCommand = `git status --porcelain --untracked-files^=normal -- ${runtimePathspecText}`;
+const cleanIndex = updater.indexOf(cleanCommand);
+const cleanlinessCheckIndex = updater.indexOf(statusCommand);
 assert(resetIndex >= 0, 'one-click updater must hard-reset tracked files');
-assert(cleanIndex > resetIndex, 'one-click updater must remove untracked non-ignored files after reset');
-assert(cleanlinessCheckIndex > cleanIndex, 'one-click updater must verify the worktree is clean after removing stale files');
+assert(cleanIndex > resetIndex, 'one-click updater must remove stale untracked runtime files after reset');
+assert(cleanlinessCheckIndex > cleanIndex, 'one-click updater must verify runtime paths after removing stale files');
+assert(!updater.includes('git clean -fd -- .'), 'one-click updater must not delete unrelated untracked repository files');
 assert(!updater.includes('git clean -fdx'), 'one-click updater must preserve ignored local files such as .env');
 assert(!collector.includes('patch:current'), 'debug collection must never modify or prepare the checkout');
 assert(doctor.includes('[Aegis doctor] OK'), 'local doctor must remain available');
@@ -93,11 +98,16 @@ try {
   assert.strictEqual(spawnSync('git', ['add', '.gitignore'], { cwd: cleanFixture, encoding: 'utf8', windowsHide: true }).status, 0, 'clean fixture git add failed');
   fs.mkdirSync(path.join(cleanFixture, 'lib'), { recursive: true });
   fs.writeFileSync(path.join(cleanFixture, 'lib', 'stale-runtime.js'), 'stale', 'utf8');
+  fs.writeFileSync(path.join(cleanFixture, 'notes.txt'), 'unrelated user note', 'utf8');
   fs.writeFileSync(path.join(cleanFixture, 'preserved.env'), 'local secret placeholder', 'utf8');
-  const cleaned = spawnSync('git', ['clean', '-fd', '--', '.'], { cwd: cleanFixture, encoding: 'utf8', windowsHide: true });
+  const cleaned = spawnSync('git', ['clean', '-fd', '--', ...runtimePathspecs], { cwd: cleanFixture, encoding: 'utf8', windowsHide: true });
   assert.strictEqual(cleaned.status, 0, `git clean fixture failed:\n${cleaned.stdout || ''}\n${cleaned.stderr || ''}`);
-  assert(!fs.existsSync(path.join(cleanFixture, 'lib', 'stale-runtime.js')), 'git clean must remove stale untracked runtime files');
+  assert(!fs.existsSync(path.join(cleanFixture, 'lib', 'stale-runtime.js')), 'scoped git clean must remove stale untracked runtime files');
+  assert(fs.existsSync(path.join(cleanFixture, 'notes.txt')), 'scoped git clean must preserve unrelated untracked files');
   assert(fs.existsSync(path.join(cleanFixture, 'preserved.env')), 'git clean without -x must preserve ignored local files');
+  const runtimeStatus = spawnSync('git', ['status', '--porcelain', '--untracked-files=normal', '--', ...runtimePathspecs], { cwd: cleanFixture, encoding: 'utf8', windowsHide: true });
+  assert.strictEqual(runtimeStatus.status, 0, `runtime status fixture failed:\n${runtimeStatus.stdout || ''}\n${runtimeStatus.stderr || ''}`);
+  assert.strictEqual((runtimeStatus.stdout || '').trim(), '', 'runtime pathspecs must be clean after scoped cleanup');
 } finally {
   fs.rmSync(cleanFixture, { recursive: true, force: true });
 }
