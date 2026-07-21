@@ -57,6 +57,9 @@ assert(main.includes("require('./lib/navigation-policy')"), 'prepared main does 
 assert(main.includes('isAllowedInternalNavigation(url)'), 'prepared main does not enforce internal navigation policy');
 assert(main.includes('isAllowedExternalNavigation(url)'), 'prepared main does not enforce external protocol policy');
 assert(main.includes('navigationLogLabel(url)'), 'prepared main does not redact navigation diagnostics');
+assert(main.includes("contents.on('will-redirect', guardNavigation)"), 'server redirects are not guarded');
+assert(main.includes("contents.on('did-create-window'"), 'child windows do not inherit navigation guards');
+assert(main.includes('attachNavigationPolicy(window?.webContents)'), 'child-window policy attachment is missing');
 assert(!main.includes('accounts\\.google\\.com$'), 'unsafe suffix-only auth hostname regex remains');
 assert(!main.includes("shell.openExternal(url).catch(() => {})"), 'unsafe unvalidated external open remains');
 assert(!main.includes('compact(url, 500)'), 'raw navigation URL is still written to diagnostics');
