@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#020207">
+  <title>Aegis Limitless — Mobile Preview</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main id="app" data-mode="home" data-technique="idle">
+    <section id="home" class="scene home-scene" aria-label="Limitless Void">
+      <div class="hero-art" aria-hidden="true"></div>
+      <div class="ink-depth ink-depth-a" aria-hidden="true"></div>
+      <div class="ink-depth ink-depth-b" aria-hidden="true"></div>
+
+      <button class="technique-hotspot hotspot-red" type="button" data-enter="red" aria-label="Открыть Red"></button>
+      <button class="technique-hotspot hotspot-blue" type="button" data-enter="blue" aria-label="Открыть Blue"></button>
+      <button class="technique-hotspot hotspot-purple" type="button" data-enter="purple" aria-label="Открыть Hollow Purple"></button>
+      <button class="system-hotspot" type="button" data-enter="system" aria-label="Открыть System Hub через Six Eyes"></button>
+
+      <div class="technique-label" aria-live="polite">
+        <small>AEGIS / LIMITLESS</small>
+        <strong id="home-technique-name">Коснись техники</strong>
+        <span id="home-technique-detail">Blue · Red · Purple · Six Eyes</span>
+      </div>
+      <div class="home-index"><span>03 CHANNELS</span><i></i><span>PRIVATE PREVIEW</span></div>
+    </section>
+
+    <section id="workspace" class="scene workspace" aria-hidden="true">
+      <header class="workspace-bar">
+        <button class="icon-button" type="button" data-home aria-label="Вернуться домой">←</button>
+        <div><small id="workspace-kicker">CURSED TECHNIQUE</small><strong id="workspace-title">BLUE</strong></div>
+        <button class="icon-button" type="button" data-open-panel aria-label="Открыть панель проекта">⌁</button>
+      </header>
+
+      <div class="workspace-aura" aria-hidden="true"></div>
+      <article class="chat-surface">
+        <div class="runtime-line"><i></i><span id="runtime-name">Blue Runtime</span><small>WEB PREVIEW</small></div>
+        <div class="messages">
+          <div class="message system-message">Независимый ChatGPT runtime будет отображаться здесь в desktop-сборке.</div>
+          <div class="message user-message">Проверь текущую задачу и продолжи работу по контракту.</div>
+          <div class="message assistant-message">
+            <span class="response-mark"></span>
+            <p id="assistant-copy">Контекст Blue сохранён. Продолжаю выполнение и фиксирую доказательства.</p>
+            <div class="typing"><i></i><i></i><i></i></div>
+          </div>
+        </div>
+        <div class="composer"><span>Сообщение в активный runtime…</span><button type="button" aria-label="Отправить">↑</button></div>
+      </article>
+
+      <aside id="project-panel" class="project-panel" aria-hidden="true" inert>
+        <button class="panel-close" type="button" data-close-panel aria-label="Закрыть">×</button>
+        <small>PROJECT CORE</small>
+        <h2 id="panel-title">Blue Runtime</h2>
+        <dl>
+          <div><dt>STATE</dt><dd>Ready</dd></div>
+          <div><dt>QUEUE</dt><dd>Preserved</dd></div>
+          <div><dt>CONTRACT</dt><dd>Bound</dd></div>
+        </dl>
+        <button class="panel-action" type="button">Открыть контракт</button>
+        <button class="panel-action" type="button">Диагностика</button>
+      </aside>
+
+      <nav class="technique-switcher" aria-label="Переключение runtime">
+        <button type="button" data-switch="red"><i></i><span>RED</span></button>
+        <button type="button" data-switch="purple"><i></i><span>PURPLE</span></button>
+        <button type="button" data-switch="blue"><i></i><span>BLUE</span></button>
+      </nav>
+    </section>
+
+    <section id="system-hub" class="scene system-hub" aria-hidden="true">
+      <div class="eye-field" aria-hidden="true"></div>
+      <header class="system-heading"><small>SIX EYES / SYSTEM LAYER</small><h1>Limitless Core</h1><p>Управление тремя независимыми runtime без смешения контекста.</p></header>
+      <div class="hub-orbit" aria-hidden="true"></div>
+      <div class="hub-actions">
+        <button type="button" data-hub="chats"><b>01</b><span>Chat settings</span><small>Runtime, очередь, проект</small></button>
+        <button type="button" data-hub="contracts"><b>02</b><span>Contracts</span><small>Цель и критерии готовности</small></button>
+        <button type="button" data-hub="global"><b>03</b><span>Global settings</span><small>Модель, бюджет, поведение</small></button>
+        <button type="button" data-hub="diagnostics"><b>04</b><span>Diagnostics</span><small>GPU, runtime, recovery</small></button>
+      </div>
+      <button class="system-return" type="button" data-home>Вернуться в Void <span>↙</span></button>
+    </section>
+
+    <section id="hub-sheet" class="hub-sheet" aria-hidden="true" inert>
+      <button class="sheet-close" type="button" data-close-sheet>×</button>
+      <small id="sheet-kicker">SYSTEM NODE</small>
+      <h2 id="sheet-title">Chat settings</h2>
+      <div id="sheet-content"></div>
+    </section>
+
+    <div id="transition-fx" class="transition-fx" aria-hidden="true"><span></span><i></i></div>
+    <div id="phase-caption" class="phase-caption" aria-live="polite"></div>
+  </main>
+  <script src="app.js"></script>
+</body>
+</html>

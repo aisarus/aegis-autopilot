@@ -1,0 +1,132 @@
+:root {
+  color-scheme: dark;
+  --blue: #23c7ff;
+  --red: #ff284e;
+  --purple: #c33cff;
+  --accent: var(--blue);
+  --origin-x: 50%;
+  --origin-y: 50%;
+  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+* { box-sizing: border-box; }
+html, body { width: 100%; height: 100%; margin: 0; overflow: hidden; background: #020207; }
+button { color: inherit; font: inherit; -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
+button:focus-visible { outline: 1px solid rgba(255,255,255,.86); outline-offset: 5px; }
+
+#app, .scene { position: fixed; inset: 0; overflow: hidden; }
+#app { background: #020207; color: #f5f5f8; }
+.scene { transition: opacity .42s ease, visibility .42s; }
+.home-scene { z-index: 1; background: #000; }
+.hero-art { position: absolute; inset: 0; background: #000 url("assets/hero-manga-v4.webp") center/cover no-repeat; transform-origin: var(--origin-x) var(--origin-y); transition: transform 1.65s cubic-bezier(.7,.02,.76,.34), filter .58s ease, opacity .4s ease; will-change: transform, filter; }
+.hero-art::after { content: ""; position: absolute; inset: 0; background: radial-gradient(ellipse at 50% 50%, transparent 38%, rgba(0,0,0,.28) 82%, rgba(0,0,0,.72)); }
+.ink-depth { position: absolute; inset: -12%; pointer-events: none; mix-blend-mode: screen; opacity: .12; }
+.ink-depth-a { background: radial-gradient(circle at 19% 55%, rgba(255,20,64,.5), transparent 17%), radial-gradient(circle at 72% 29%, rgba(0,207,255,.45), transparent 18%); animation: ink-breathe 7s ease-in-out infinite alternate; }
+.ink-depth-b { opacity: .09; background: repeating-conic-gradient(from 20deg at 45% 39%, transparent 0 13deg, rgba(255,255,255,.12) 13.3deg 13.8deg, transparent 14deg 27deg); animation: ink-turn 35s linear infinite; }
+@keyframes ink-breathe { to { transform: scale(1.08) translate3d(1.5%, -1%, 0); opacity: .19; } }
+@keyframes ink-turn { to { transform: rotate(360deg); } }
+
+.technique-hotspot, .system-hotspot { position: absolute; z-index: 4; border: 0; border-radius: 50%; background: transparent; }
+.technique-hotspot::after, .system-hotspot::after { content: ""; position: absolute; inset: 6%; border: 1px solid rgba(255,255,255,0); border-radius: inherit; transition: border-color .24s ease, box-shadow .24s ease, transform .24s ease; }
+.technique-hotspot:active::after, .technique-hotspot:focus-visible::after, .system-hotspot:active::after, .system-hotspot:focus-visible::after { border-color: rgba(255,255,255,.68); box-shadow: 0 0 34px color-mix(in srgb, var(--hotspot) 52%, transparent); transform: scale(.92); }
+.hotspot-red { --hotspot: var(--red); left: 2%; top: 39%; width: 27%; aspect-ratio: 1; }
+.hotspot-blue { --hotspot: var(--blue); right: 14%; top: 13%; width: 25%; aspect-ratio: 1; }
+.hotspot-purple { --hotspot: var(--purple); left: 35%; top: 27%; width: 11%; aspect-ratio: 1; }
+.system-hotspot { left: 68%; top: 68%; width: 26%; height: 28%; border-radius: 42%; }
+
+.technique-label { position: absolute; z-index: 5; left: max(22px, env(safe-area-inset-left)); bottom: max(54px, calc(env(safe-area-inset-bottom) + 30px)); display: grid; gap: 4px; max-width: 320px; text-shadow: 0 3px 18px #000; pointer-events: none; }
+.technique-label small, .home-index, .workspace-bar small, .system-heading small, .hub-sheet > small { color: rgba(218,230,244,.52); font-size: 8px; letter-spacing: .23em; }
+.technique-label strong { font: 520 clamp(22px, 4vw, 48px)/1 Georgia, serif; }
+.technique-label span { color: rgba(211,220,233,.6); font-size: 10px; letter-spacing: .12em; }
+.home-index { position: absolute; z-index: 4; right: max(22px, env(safe-area-inset-right)); bottom: max(22px, env(safe-area-inset-bottom)); display: flex; align-items: center; gap: 8px; }
+.home-index i { width: 3px; height: 3px; border-radius: 50%; background: #85efd2; box-shadow: 0 0 9px #85efd2; }
+
+#app[data-technique="blue"] { --accent: var(--blue); --origin-x: 71%; --origin-y: 28%; }
+#app[data-technique="red"] { --accent: var(--red); --origin-x: 15%; --origin-y: 59%; }
+#app[data-technique="purple"] { --accent: var(--purple); --origin-x: 41%; --origin-y: 35%; }
+#app[data-technique="system"] { --accent: #67d8ff; --origin-x: 81%; --origin-y: 83%; }
+#app[data-mode="transition"] .hero-art { transform: scale(6.2); filter: contrast(1.2) saturate(1.28); }
+#app[data-mode="transition"] .technique-label, #app[data-mode="transition"] .home-index { opacity: 0; }
+
+.workspace { z-index: 6; display: grid; grid-template-rows: auto 1fr auto; padding: max(14px, env(safe-area-inset-top)) max(14px, env(safe-area-inset-right)) max(16px, env(safe-area-inset-bottom)) max(14px, env(safe-area-inset-left)); opacity: 0; visibility: hidden; background: radial-gradient(circle at 70% 16%, color-mix(in srgb, var(--accent) 14%, transparent), transparent 29%), #04050a; }
+#app[data-mode="workspace"] .workspace { opacity: 1; visibility: visible; }
+#app[data-mode="workspace"] .home-scene, #app[data-mode="system"] .home-scene { opacity: 0; visibility: hidden; }
+.workspace-bar { position: relative; z-index: 3; display: grid; grid-template-columns: 44px 1fr 44px; align-items: center; min-height: 56px; border-bottom: 1px solid color-mix(in srgb, var(--accent) 34%, transparent); }
+.workspace-bar > div { display: grid; gap: 2px; text-align: center; }
+.workspace-bar strong { font-size: 12px; letter-spacing: .24em; }
+.icon-button { width: 40px; height: 40px; border: 0; border-radius: 50%; background: rgba(255,255,255,.045); font-size: 20px; }
+.workspace-aura { position: absolute; inset: 0; pointer-events: none; background: repeating-radial-gradient(circle at 50% 45%, transparent 0 8%, color-mix(in srgb, var(--accent) 5%, transparent) 8.3% 8.6%, transparent 9% 14%); opacity: .5; animation: aura 12s linear infinite; }
+@keyframes aura { to { transform: scale(1.2) rotate(8deg); opacity: .18; } }
+.chat-surface { position: relative; z-index: 2; align-self: stretch; width: min(860px, 100%); min-height: 0; margin: 14px auto 10px; display: grid; grid-template-rows: auto 1fr auto; overflow: hidden; border: 1px solid color-mix(in srgb, var(--accent) 22%, rgba(255,255,255,.04)); border-radius: 18px; background: rgba(3,5,10,.86); box-shadow: 0 24px 90px rgba(0,0,0,.5); backdrop-filter: blur(18px); }
+.runtime-line { display: flex; gap: 9px; align-items: center; padding: 13px 15px; border-bottom: 1px solid rgba(255,255,255,.06); font-size: 11px; }
+.runtime-line i { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 13px var(--accent); }
+.runtime-line small { margin-left: auto; color: #687288; font-size: 8px; letter-spacing: .18em; }
+.messages { min-height: 0; padding: clamp(16px, 4vw, 38px); overflow: auto; display: flex; flex-direction: column; gap: 17px; }
+.message { max-width: 82%; padding: 12px 14px; border-radius: 14px; color: #cbd2df; font-size: 13px; line-height: 1.5; }
+.system-message { align-self: center; max-width: 92%; padding: 8px 12px; color: #717d90; border: 1px dashed rgba(255,255,255,.1); background: rgba(255,255,255,.025); font-size: 10px; text-align: center; }
+.user-message { align-self: flex-end; color: #f0f2f7; background: color-mix(in srgb, var(--accent) 15%, rgba(255,255,255,.04)); border-bottom-right-radius: 4px; }
+.assistant-message { position: relative; padding-left: 21px; background: rgba(255,255,255,.035); border-bottom-left-radius: 4px; }
+.assistant-message p { margin: 0; }
+.response-mark { position: absolute; left: 0; top: 10px; bottom: 10px; width: 2px; background: var(--accent); box-shadow: 0 0 12px var(--accent); }
+.typing { display: flex; gap: 4px; margin-top: 12px; }
+.typing i { width: 4px; height: 4px; border-radius: 50%; background: var(--accent); animation: typing 1.1s ease-in-out infinite alternate; }
+.typing i:nth-child(2) { animation-delay: .18s; }.typing i:nth-child(3) { animation-delay: .36s; }
+@keyframes typing { to { opacity: .22; transform: translateY(-3px); } }
+.composer { margin: 0 12px 12px; min-height: 48px; display: flex; align-items: center; gap: 12px; padding: 7px 7px 7px 15px; border: 1px solid rgba(255,255,255,.1); border-radius: 15px; color: #707a8d; background: #090b12; font-size: 12px; }
+.composer span { flex: 1; }.composer button { width: 34px; height: 34px; border: 0; border-radius: 11px; color: #020207; background: var(--accent); font-size: 18px; }
+.technique-switcher { position: relative; z-index: 3; justify-self: center; display: flex; gap: 8px; }
+.technique-switcher button { min-width: 82px; padding: 9px 12px; display: flex; justify-content: center; align-items: center; gap: 7px; border: 1px solid rgba(255,255,255,.08); border-radius: 999px; background: rgba(255,255,255,.035); color: #8690a1; font-size: 9px; letter-spacing: .12em; }
+.technique-switcher i { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+.technique-switcher [data-switch="blue"] { color: var(--blue); }.technique-switcher [data-switch="red"] { color: var(--red); }.technique-switcher [data-switch="purple"] { color: var(--purple); }
+.technique-switcher button.is-active { border-color: currentColor; background: color-mix(in srgb, currentColor 12%, transparent); box-shadow: 0 0 22px color-mix(in srgb, currentColor 13%, transparent); }
+.project-panel { position: absolute; z-index: 9; top: 0; right: 0; width: min(360px, 88vw); height: 100%; padding: max(54px, calc(env(safe-area-inset-top) + 32px)) 24px 24px; transform: translateX(102%); transition: transform .4s cubic-bezier(.2,.8,.2,1); background: rgba(5,7,13,.97); border-left: 1px solid color-mix(in srgb, var(--accent) 28%, transparent); box-shadow: -26px 0 70px rgba(0,0,0,.45); }
+.project-panel.is-open { transform: translateX(0); }
+.project-panel h2 { margin: 9px 0 28px; font: 500 28px/1.1 Georgia, serif; }.project-panel > small { color: var(--accent); font-size: 8px; letter-spacing: .25em; }
+.panel-close { position: absolute; top: max(14px, env(safe-area-inset-top)); right: 14px; width: 36px; height: 36px; border: 0; border-radius: 50%; background: rgba(255,255,255,.05); font-size: 22px; }
+.project-panel dl { display: grid; gap: 0; margin: 0 0 24px; }.project-panel dl div { display: flex; justify-content: space-between; padding: 13px 0; border-bottom: 1px solid rgba(255,255,255,.07); }.project-panel dt { color: #687386; font-size: 9px; letter-spacing: .16em; }.project-panel dd { margin: 0; font-size: 11px; }
+.panel-action { width: 100%; margin-top: 8px; padding: 12px; border: 1px solid rgba(255,255,255,.09); border-radius: 11px; background: rgba(255,255,255,.035); text-align: left; }
+
+.system-hub { z-index: 7; opacity: 0; visibility: hidden; padding: max(30px, env(safe-area-inset-top)) max(24px, env(safe-area-inset-right)) max(28px, env(safe-area-inset-bottom)) max(24px, env(safe-area-inset-left)); background: #010309; }
+#app[data-mode="system"] .system-hub { opacity: 1; visibility: visible; }
+.eye-field { position: absolute; inset: 0; background: linear-gradient(rgba(0,4,10,.25), rgba(0,2,8,.84)), url("assets/hero-manga-portrait.jpg") center 57%/cover no-repeat; filter: saturate(.75) contrast(1.18); transform: scale(1.12); }
+.eye-field::after { content: ""; position: absolute; inset: 0; background: radial-gradient(circle at 50% 52%, transparent 0 7%, rgba(0,12,30,.35) 14%, rgba(0,2,8,.92) 62%); }
+.system-heading { position: relative; z-index: 2; max-width: 470px; }.system-heading h1 { margin: 9px 0 8px; font: 500 clamp(36px, 8vw, 64px)/.95 Georgia, serif; }.system-heading p { margin: 0; max-width: 390px; color: #77859b; font-size: 11px; line-height: 1.5; }
+.hub-orbit { position: absolute; left: 50%; top: 52%; width: min(62vw, 620px); aspect-ratio: 1; transform: translate(-50%,-50%); border: 1px solid rgba(87,193,255,.17); border-radius: 50%; background: repeating-conic-gradient(from 0deg, transparent 0 12deg, rgba(81,191,255,.12) 12.3deg 12.8deg); box-shadow: inset 0 0 100px rgba(34,153,255,.06); animation: ink-turn 28s linear infinite; }
+.hub-actions { position: relative; z-index: 2; height: calc(100% - 160px); margin-top: 34px; display: grid; grid-template-columns: 1fr 1fr; align-content: center; gap: 14px; }
+.hub-actions button { position: relative; min-height: 100px; padding: 17px 14px 15px 47px; border: 0; border-bottom: 1px solid rgba(130,185,235,.2); border-radius: 0; background: rgba(3,9,18,.62); text-align: left; backdrop-filter: blur(10px); }
+.hub-actions b { position: absolute; left: 13px; top: 18px; color: rgba(107,201,255,.55); font: 400 9px/1 monospace; }.hub-actions span { display: block; font-size: 12px; letter-spacing: .08em; text-transform: uppercase; }.hub-actions small { display: block; margin-top: 6px; color: #728095; font-size: 9px; }
+.system-return { position: absolute; z-index: 3; right: max(24px, env(safe-area-inset-right)); bottom: max(23px, env(safe-area-inset-bottom)); padding: 10px 0; border: 0; border-bottom: 1px solid rgba(145,176,210,.3); background: transparent; color: #94a2b5; font-size: 9px; letter-spacing: .16em; }.system-return span { margin-left: 9px; }
+.hub-sheet { position: fixed; z-index: 15; left: 50%; bottom: 0; width: min(720px, 100%); min-height: 47%; padding: 28px max(24px, env(safe-area-inset-right)) max(30px, calc(env(safe-area-inset-bottom) + 20px)) max(24px, env(safe-area-inset-left)); transform: translate(-50%, 102%); transition: transform .42s cubic-bezier(.2,.8,.2,1); border: 1px solid rgba(113,193,255,.18); border-bottom: 0; border-radius: 22px 22px 0 0; background: rgba(4,8,15,.97); box-shadow: 0 -28px 90px rgba(0,0,0,.58); backdrop-filter: blur(18px); }
+.hub-sheet.is-open { transform: translate(-50%,0); }.hub-sheet h2 { margin: 8px 0 20px; font: 500 30px/1 Georgia, serif; }.sheet-close { position: absolute; top: 18px; right: 18px; width: 36px; height: 36px; border: 0; border-radius: 50%; background: rgba(255,255,255,.05); font-size: 22px; }.sheet-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 9px; }.sheet-grid div { padding: 13px; border: 1px solid rgba(255,255,255,.08); border-radius: 10px; background: rgba(255,255,255,.025); }.sheet-grid small { display: block; color: #68768b; font-size: 8px; letter-spacing: .14em; }.sheet-grid b { display: block; margin-top: 6px; font-size: 12px; }
+
+.transition-fx { position: fixed; inset: -18%; z-index: 20; opacity: 0; visibility: hidden; pointer-events: none; transform: scale(.1); border-radius: 50%; }
+.transition-fx.is-active { opacity: 1; visibility: visible; transform: scale(1); }
+.transition-fx span, .transition-fx i { position: absolute; inset: 0; }
+#app[data-technique="blue"] .transition-fx { background: radial-gradient(circle at 50%, #fff 0 1%, #38cfff 3%, #0758af 13%, #020a1d 42%, #000 72%); box-shadow: inset 0 0 190px rgba(45,193,255,.55); }
+#app[data-technique="blue"] .transition-fx span { background: repeating-conic-gradient(from 0deg, transparent 0 7deg, rgba(147,227,255,.19) 7.2deg 7.7deg); animation: blue-pull .34s linear infinite; }
+@keyframes blue-pull { to { transform: rotate(-12deg) scale(.78); } }
+#app[data-technique="red"] .transition-fx { background: radial-gradient(circle at 50%, #fff 0 2%, #ffb5bd 3%, #ff173e 7%, #680014 24%, #080005 62%, #000 76%); box-shadow: inset 0 0 190px rgba(255,29,62,.5); }
+#app[data-technique="red"] .transition-fx span { background: repeating-radial-gradient(circle, transparent 0 7%, rgba(255,194,199,.22) 7.4% 7.9%, transparent 8.5% 13%); animation: red-wave .42s ease-out infinite; }
+@keyframes red-wave { from { transform: scale(.6); opacity: 1; } to { transform: scale(1.25); opacity: .08; } }
+#app[data-technique="purple"] .transition-fx { border-radius: 0; transform: scaleX(.02); background: radial-gradient(ellipse, #fff 0 1%, #d69aff 3%, #8122d6 12%, #190024 39%, #000 72%); transition: transform .38s cubic-bezier(.8,0,.2,1), opacity .2s; }
+#app[data-technique="purple"] .transition-fx.is-active { transform: scaleX(1); }
+#app[data-technique="purple"] .transition-fx span { background: linear-gradient(108deg, transparent 42%, #27bfff 47%, #fff 49.5%, #ff2748 52%, transparent 58%); filter: blur(13px); }
+#app[data-technique="system"] .transition-fx { inset: 0; border-radius: 0; transform: scale(1); background: #000 url("assets/hero-manga-portrait.jpg") center 59%/cover no-repeat; }
+#app[data-technique="system"] .transition-fx span { background: radial-gradient(circle at 50% 56%, transparent 0 5%, rgba(44,187,255,.23) 6%, rgba(0,6,18,.88) 33%, #000 72%); animation: iris .66s cubic-bezier(.2,.8,.1,1) both; }
+@keyframes iris { from { transform: scale(2.2); opacity: 1; } to { transform: scale(.16); opacity: .1; } }
+.phase-caption { position: fixed; z-index: 25; left: 50%; bottom: max(24px, calc(env(safe-area-inset-bottom) + 12px)); transform: translateX(-50%); color: rgba(255,255,255,.7); font-size: 8px; letter-spacing: .28em; text-transform: uppercase; opacity: 0; transition: opacity .2s; pointer-events: none; }.phase-caption.is-visible { opacity: 1; }
+
+@media (orientation: portrait) {
+  .hero-art { background-image: url("assets/hero-manga-portrait.jpg"); background-size: contain; }
+  .hero-art::after { background: linear-gradient(#000 0 3%, transparent 18% 82%, #000 98%), radial-gradient(ellipse, transparent 44%, rgba(0,0,0,.35) 86%); }
+  .hotspot-red { left: 0; top: 18%; width: 30%; }.hotspot-blue { right: 4%; top: 4%; width: 35%; }.hotspot-purple { left: 34%; top: 12%; width: 16%; }.system-hotspot { left: 4%; top: 48%; width: 92%; height: 22%; }
+  #app[data-technique="blue"] { --origin-x: 76%; --origin-y: 15%; } #app[data-technique="red"] { --origin-x: 12%; --origin-y: 30%; } #app[data-technique="purple"] { --origin-x: 41%; --origin-y: 19%; } #app[data-technique="system"] { --origin-x: 52%; --origin-y: 58%; }
+  .technique-label { bottom: max(42px, calc(env(safe-area-inset-bottom) + 26px)); }.home-index { display: none; }
+  .workspace { padding-left: max(10px, env(safe-area-inset-left)); padding-right: max(10px, env(safe-area-inset-right)); }.chat-surface { margin-top: 9px; border-radius: 15px; }.messages { padding: 18px 13px; }.message { max-width: 89%; font-size: 12px; }.technique-switcher { width: 100%; }.technique-switcher button { flex: 1; min-width: 0; padding-inline: 8px; }
+  .hub-actions { grid-template-columns: 1fr; gap: 8px; overflow: auto; align-content: start; padding-top: 8px; }.hub-actions button { min-height: 74px; }.hub-orbit { width: 92vw; opacity: .5; }.system-heading h1 { font-size: 38px; }.system-heading p { max-width: 290px; }.sheet-grid { grid-template-columns: 1fr; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .001ms !important; animation-iteration-count: 1 !important; transition-duration: .25s !important; }
+  #app[data-mode="transition"] .hero-art { transform: none; filter: none; }
+}
