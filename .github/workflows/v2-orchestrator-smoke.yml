@@ -1,0 +1,38 @@
+name: Aegis v2 orchestrator smoke
+
+on:
+  pull_request:
+    paths:
+      - 'orchestrator/**'
+      - 'tests/*-v2-smoke.js'
+      - 'package.json'
+      - '.github/workflows/v2-orchestrator-smoke.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'orchestrator/**'
+      - 'tests/*-v2-smoke.js'
+      - 'package.json'
+      - '.github/workflows/v2-orchestrator-smoke.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: windows-latest
+    timeout-minutes: 10
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: [22, 24]
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: npm run test:v2

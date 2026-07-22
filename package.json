@@ -1,13 +1,16 @@
 {
   "name": "aegis-chatgpt-client",
   "version": "1.2.4",
-  "description": "Minimal three-project autopilot with draft-safe automatic retries",
+  "description": "Aegis desktop client with a standalone GitHub-native project orchestrator",
   "main": "main.js",
   "private": true,
   "scripts": {
     "start": "electron .",
     "dev": "electron .",
+    "start:v2": "electron v2-main.js",
+    "dev:v2": "electron v2-main.js",
     "test": "node tests/multi-chat-smoke.js && node tests/autopilot-resilience-smoke.js && node tests/send-contract-smoke.js && node tests/composer-first-readiness-smoke.js && node tests/no-reload-loop-smoke.js && node tests/budget-guard-smoke.js && node tests/minimal-three-project-smoke.js && node tests/chat-identity-draft-smoke.js && node tests/send-transaction-smoke.js && node tests/own-draft-retry-smoke.js",
+    "test:v2": "node tests/github-connector-v2-smoke.js && node tests/baseline-service-v2-smoke.js && node tests/credential-store-v2-smoke.js && node tests/worktree-service-v2-smoke.js && node tests/coding-agent-loop-v2-smoke.js && node tests/provider-adapters-v2-smoke.js && node tests/repository-sync-v2-smoke.js && node tests/project-registry-v2-smoke.js && node tests/project-agent-runner-v2-smoke.js && node tests/publication-service-v2-smoke.js && node tests/runtime-service-v2-smoke.js && node tests/electron-control-surface-v2-smoke.js",
     "dist:win": "electron-builder --win nsis",
     "pack:win": "electron-builder --win dir",
     "dev:once": "electron ."
@@ -32,8 +35,12 @@
       "main.js",
       "preload.js",
       "chatgpt-preload.js",
+      "v2-main.js",
+      "v2-preload.js",
       "adapters/**/*",
+      "orchestrator/**/*",
       "renderer/**/*",
+      "renderer-v2/**/*",
       "package.json",
       "node_modules/**/*"
     ],
