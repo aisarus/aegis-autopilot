@@ -1,33 +1,39 @@
 # Aegis Autopilot
 
-Минимальный Electron-клиент для ведения до трёх проектных чатов ChatGPT через Gemini Supervisor.
+> **Historical predecessor.** This repository contains an earlier Aegis architecture. The current Aegis has evolved into a substantially different autonomous development operator and is developed in a private repository.
+>
+> For the sanitized employer-facing snapshot of the current system, live-run evidence, incident stories and role framing, read **[`CURRENT-AEGIS-CASE-STUDY.md`](CURRENT-AEGIS-CASE-STUDY.md)**.
 
-Главное окно разделено на две части: управление автопилотом слева и обычный ChatGPT справа. В проекте есть повторные попытки, диагностика, защита от циклов и жёсткие дневные лимиты расходов Gemini.
+## This repository
 
-## Первый запуск
+This version is an Electron client for running up to three project ChatGPT conversations under a Gemini Supervisor.
 
-Дважды нажмите `first-run.cmd`. Скрипт установит зависимости, запустит smoke-тесты и откроет Aegis прямо из исходников.
+The main window combines autopilot controls with a normal ChatGPT surface. The project includes retries, diagnostics, loop protection and hard daily Gemini spending limits.
 
-## Обычная разработка
+## First run
 
-Дважды нажмите `dev.cmd`. Изменения в `main.js`, preload-скриптах, `renderer/` и `adapters/` автоматически перезапускают Electron.
+Run `first-run.cmd`. It installs dependencies, runs smoke tests and starts Aegis from source.
 
-## Получить свежий патч
+## Development
 
-Дважды нажмите `update-and-run.cmd`. Скрипт выполнит безопасный `git pull --ff-only`, установит изменившиеся зависимости, запустит тесты и откроет dev-режим.
+Run `dev.cmd`. Changes in `main.js`, preload scripts, `renderer/` and `adapters/` restart Electron automatically.
 
-## Восстановить сломанную локальную копию
+## Update and run
 
-Дважды нажмите `reset-and-run.cmd`. Скрипт удалит локальные изменения исходников и восстановит `origin/main`. Профиль ChatGPT, закреплённые чаты, настройки, логи и счётчики бюджета хранятся в Electron `userData` вне репозитория и не удаляются.
+Run `update-and-run.cmd` to perform a safe `git pull --ff-only`, install changed dependencies, run tests and open development mode.
 
-## Стабильная сборка
+## Restore a broken local copy
 
-Установщик собирается только для проверенных релизов через `build-installer.cmd`.
+Run `reset-and-run.cmd`. It resets source changes to `origin/main`. ChatGPT profile data, pinned chats, settings, logs and budget counters are stored in Electron `userData` outside the repository and are not removed.
 
-## Защита бюджета
+## Stable build
 
-В настройках задаются максимальная сумма и максимальное число Gemini-вызовов в сутки. Обычные проверки DOM не расходуют API; Gemini вызывается после появления нового завершённого ответа ChatGPT.
+The installer is built only for verified releases through `build-installer.cmd`.
 
-## Безопасность
+## Budget protection
 
-Не коммитьте Gemini API keys, cookies, Electron profile, logs, `node_modules` или `dist`. Эти пути исключены через `.gitignore`.
+Settings define maximum Gemini spend and call count per day. Ordinary DOM checks do not consume the Gemini API; Gemini is called after a new completed ChatGPT response appears.
+
+## Security
+
+Do not commit Gemini API keys, cookies, Electron profiles, logs, `node_modules` or `dist`. These paths are excluded through `.gitignore`.
